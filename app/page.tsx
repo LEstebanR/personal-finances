@@ -1,17 +1,17 @@
-import { Button } from '@/components/ui/button'
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card'
-import { Header } from '@/components/ui/header'
-import { ArrowRight, Banknote, CreditCard, Lock, Wallet } from 'lucide-react'
-import Link from 'next/link'
+} from "@/components/ui/card";
+import { Header } from "@/components/ui/header";
+import { ArrowRight, Banknote, CreditCard, Lock, Wallet } from "lucide-react";
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="flex flex-col items-center justify-center">
+    <div className="flex flex-col items-center justify-center px-4">
       <Header />
       <section
         id="#hero"
@@ -44,25 +44,25 @@ export default function Home() {
         <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2">
           {[
             {
-              title: 'Multiple Accounts',
+              title: "Multiple Accounts",
               description:
-                'Manage cash, bank accounts, and savings all in one place',
+                "Manage cash, bank accounts, and savings all in one place",
               icon: <Banknote className="h-10 w-10" />,
             },
             {
-              title: 'Debt Management',
+              title: "Debt Management",
               description:
-                'Track and manage your debts to become debt-free faster',
+                "Track and manage your debts to become debt-free faster",
               icon: <CreditCard className="h-10 w-10" />,
             },
             {
-              title: 'Budget Planning',
-              description: 'Create and manage budgets to control your spending',
+              title: "Budget Planning",
+              description: "Create and manage budgets to control your spending",
               icon: <Wallet className="h-10 w-10" />,
             },
             {
-              title: 'Secure & Private',
-              description: 'Your financial data is encrypted and never shared',
+              title: "Secure & Private",
+              description: "Your financial data is encrypted and never shared",
               icon: <Lock className="h-10 w-10" />,
             },
           ].map((feature) => (
@@ -85,5 +85,5 @@ export default function Home() {
         </div>
       </section>
     </div>
-  )
+  );
 }
