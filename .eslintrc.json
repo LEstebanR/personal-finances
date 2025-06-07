@@ -1,0 +1,54 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2021,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  },
+  "plugins": [
+    "react",
+    "react-hooks",
+    "@typescript-eslint",
+    "tailwindcss",
+    "prettier"
+  ],
+  "extends": [
+    "next/core-web-vitals",
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended",
+    "prettier",
+    "plugin:tailwindcss/recommended",
+    "plugin:prettier/recommended"
+  ],
+  "rules": {
+    "prettier/prettier": "error",
+    "sort-keys": ["error", "asc", { "caseSensitive": true, "natural": false }]
+  },
+  "settings": {
+    "react": {
+      "version": "detect"
+    }
+  },
+  "ignorePatterns": [
+    "cypress/**/*.js",
+    "src/lib/graphql/schema/__generated__/*"
+  ],
+  "overrides": [
+    {
+      "files": ["**/i18n/**/*.json"],
+      "parser": "jsonc-eslint-parser",
+      "rules": {
+        "sort-keys": [
+          "error",
+          "asc",
+          { "caseSensitive": true, "natural": false }
+        ]
+      }
+    }
+  ]
+}

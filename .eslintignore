@@ -1,0 +1,11 @@
+# Ignorar la carpeta de cobertura generada por Vitest
+coverage/
+
+# Ignorar node_modules
+node_modules/
+
+# Ignorar dist
+dist/
+
+# Ignorar .vscode
+.vscode/
