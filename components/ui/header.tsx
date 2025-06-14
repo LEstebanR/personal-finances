@@ -16,12 +16,14 @@ import { AvatarFallback } from '@radix-ui/react-avatar'
 import { User } from '@supabase/supabase-js'
 import { LogIn, LogOut, MenuIcon, UserPlus } from 'lucide-react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 import { Avatar, AvatarImage } from './avatar'
 
 export function Header({ user, path }: { user?: User | null; path?: string }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const currentView = Array.from(searchParams.entries())[0]?.[0]
 
   const logout = async () => {
     await supabase.auth.signOut()
@@ -37,7 +39,12 @@ export function Header({ user, path }: { user?: User | null; path?: string }) {
           <div className="flex items-center gap-4">
             <SidebarTrigger />
           </div>
-          <Logo className="md:hidden" />
+          <Link className="cursor-pointer md:hidden" href="/dashboard">
+            <Logo />
+          </Link>
+          <h2 className="hidden text-lg font-bold capitalize md:block">
+            {currentView}
+          </h2>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Avatar className="cursor-pointer">
@@ -67,7 +74,9 @@ export function Header({ user, path }: { user?: User | null; path?: string }) {
         </>
       ) : (
         <>
-          <Logo />
+          <Link className="cursor-pointer" href="/">
+            <Logo />
+          </Link>
           <div className="hidden items-center gap-4 md:flex">
             <Link href="/login">
               <Button variant="outline">Login</Button>

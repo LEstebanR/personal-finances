@@ -27,13 +27,9 @@ export default function Dashboard() {
     getUser()
   }, [router])
 
-  if (!user) {
-    return <div>Loading...</div>
-  }
-
   return (
     <div className="flex w-full flex-col items-center justify-center">
-      Hola {user.user_metadata.name}
+      Hola {user?.user_metadata.name}
     </div>
   )
 }

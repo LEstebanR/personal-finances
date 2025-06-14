@@ -43,7 +43,9 @@ export default function Login() {
 
   return (
     <div className="mx-auto mt-24 flex w-full flex-col items-center gap-4 px-4">
-      <Logo />
+      <Link className="cursor-pointer" href="/">
+        <Logo />
+      </Link>
       <Card className="flex w-full flex-col md:w-4/12">
         <CardHeader>
           <CardTitle className="text-center text-2xl font-bold">
