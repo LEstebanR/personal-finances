@@ -17,10 +17,11 @@ import { User } from '@supabase/supabase-js'
 import { LogIn, LogOut, MenuIcon, UserPlus } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 
 import { Avatar, AvatarImage } from './avatar'
 
-export function Header({ user, path }: { user?: User | null; path?: string }) {
+function HeaderContent({ user, path }: { user?: User | null; path?: string }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentView = Array.from(searchParams.entries())[0]?.[0]
@@ -107,5 +108,13 @@ export function Header({ user, path }: { user?: User | null; path?: string }) {
         </>
       )}
     </header>
+  )
+}
+
+export function Header(props: { user?: User | null; path?: string }) {
+  return (
+    <Suspense fallback={<div className="h-14 w-full border-b" />}>
+      <HeaderContent {...props} />
+    </Suspense>
   )
 }
