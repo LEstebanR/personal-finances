@@ -11,8 +11,8 @@ export async function middleware(request: NextRequest) {
   // Allow access to login and dashboard routes without authentication
   if (
     !user &&
-    request.nextUrl.pathname !== '/login' &&
     request.nextUrl.pathname !== '/' &&
+    request.nextUrl.pathname !== '/login' &&
     request.nextUrl.pathname !== '/signup'
   ) {
     return NextResponse.redirect(new URL('/login', request.url))
