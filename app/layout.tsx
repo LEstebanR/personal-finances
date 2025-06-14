@@ -1,4 +1,3 @@
-import { Footer } from '@/components/ui/footer'
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Toaster } from 'sonner'
@@ -29,10 +28,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} flex min-h-dvh w-full flex-col antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} flex w-full flex-col antialiased`}
       >
         <main className="flex-1">{children}</main>
-        <Footer />
         <Toaster richColors position="top-right" />
       </body>
     </html>

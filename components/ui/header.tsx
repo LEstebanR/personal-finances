@@ -5,50 +5,98 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Logo } from '@/components/ui/logo'
-import { LogIn, MenuIcon, UserPlus } from 'lucide-react'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+import { supabase } from '@/utils/supabase.client'
+import { AvatarFallback } from '@radix-ui/react-avatar'
+import { User } from '@supabase/supabase-js'
+import { LogIn, LogOut, MenuIcon, UserPlus } from 'lucide-react'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
-export function Header() {
-  const [isOpen, setIsOpen] = useState(false)
+import { Avatar, AvatarImage } from './avatar'
 
-  const handleOpen = (open: boolean) => {
-    setIsOpen(open)
+export function Header({ user, path }: { user?: User | null; path?: string }) {
+  const router = useRouter()
+
+  const logout = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
   }
 
   return (
-    <header className="bg-background fixed top-0 right-0 left-0 z-50 flex h-14 w-full items-center justify-between px-4">
-      <Logo />
-      <div className="hidden items-center gap-4 md:flex">
-        <Link href="/login">
-          <Button variant="outline">Login</Button>
-        </Link>
-        <Link href="/signup">
-          <Button>Signup</Button>
-        </Link>
-      </div>
-      <DropdownMenu open={isOpen} onOpenChange={handleOpen}>
-        <DropdownMenuTrigger asChild>
-          <MenuIcon className="md:hidden" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent>
-          <DropdownMenuItem onClick={() => setIsOpen(false)}>
-            <Link href="/login" className="flex items-center gap-2">
-              <LogIn className="h-4 w-4" />
-              Login
+    <header
+      className={`bg-background flex h-14 w-full items-center justify-between border-b px-4 ${path === '/' ? 'fixed top-0 right-0 left-0 z-50' : ''}`}
+    >
+      {path !== '/' ? (
+        <>
+          <div className="flex items-center gap-4">
+            <SidebarTrigger />
+          </div>
+          <Logo className="md:hidden" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Avatar className="cursor-pointer">
+                <AvatarImage src="" alt={user?.user_metadata?.name} />
+                <AvatarFallback>
+                  {user
+                    ? `${user.user_metadata?.name?.charAt(0).toUpperCase()}${user.user_metadata?.lastName?.charAt(0).toUpperCase()}`
+                    : ''}
+                </AvatarFallback>
+              </Avatar>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="mt-2 rounded-t-none">
+              <DropdownMenuLabel className="text-bold py-0">{`${user?.user_metadata.name} ${user?.user_metadata.lastName}`}</DropdownMenuLabel>
+              <DropdownMenuLabel className="py-0 text-gray-500">
+                {user?.email}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={logout}
+                className="flex items-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      ) : (
+        <>
+          <Logo />
+          <div className="hidden items-center gap-4 md:flex">
+            <Link href="/login">
+              <Button variant="outline">Login</Button>
             </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setIsOpen(false)}>
-            <Link href="/signup" className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4" />
-              Signup
+            <Link href="/signup">
+              <Button>Signup</Button>
             </Link>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <MenuIcon className="md:hidden" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="mt-3 w-screen rounded-t-none">
+              <Link href="/login" className="flex items-center gap-2">
+                <DropdownMenuItem>
+                  <LogIn className="h-4 w-4" />
+                  Login
+                </DropdownMenuItem>
+              </Link>
+              <Link href="/signup" className="flex items-center gap-2">
+                <DropdownMenuItem>
+                  <UserPlus className="h-4 w-4" />
+                  Signup
+                </DropdownMenuItem>
+              </Link>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </>
+      )}
     </header>
   )
 }
