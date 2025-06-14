@@ -12,56 +12,41 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Logo } from '@/components/ui/logo'
-import { supabase } from '@/utils/supabase.client'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
-interface User {
-  id: string
-  email: string
-  name: string
-  lastName: string
-  password: string
-  confirmPassword: string
-}
-
-const initialUser: User = {
-  id: '',
-  email: '',
-  name: '',
-  lastName: '',
-  password: '',
-  confirmPassword: '',
-}
+import { signup } from './actions'
 
 export default function Signup() {
-  const [user, setUser] = useState<User>(initialUser)
+  const router = useRouter()
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (user.password !== user.confirmPassword) {
-      console.log('Passwords do not match')
+    setIsLoading(true)
+
+    const formData = new FormData(e.currentTarget)
+    const password = formData.get('password') as string
+    const confirmPassword = formData.get('confirmPassword') as string
+
+    if (password !== confirmPassword) {
       toast.error('Passwords do not match')
+      setIsLoading(false)
       return
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email: user.email,
-      password: user.password,
-      options: {
-        data: {
-          name: user.name,
-          lastName: user.lastName,
-        },
-      },
-    })
+    const result = await signup(formData)
 
-    if (error) {
-      toast.error(error.message)
+    if (result.error) {
+      toast.error(result.error)
+      setIsLoading(false)
+      return
     }
 
-    console.log(data)
+    toast.success('Account created successfully')
+    router.push('/login')
   }
 
   return (
@@ -85,27 +70,11 @@ export default function Signup() {
               <div className="grid gap-2 md:grid-cols-2">
                 <div className="grid gap-2">
                   <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    required
-                    value={user.name}
-                    onChange={(e) =>
-                      setUser((prev) => ({ ...prev, name: e.target.value }))
-                    }
-                  />
+                  <Input id="name" name="name" type="text" required />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="lastName">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    type="text"
-                    required
-                    value={user.lastName}
-                    onChange={(e) =>
-                      setUser((prev) => ({ ...prev, lastName: e.target.value }))
-                    }
-                  />
+                  <Input id="lastName" name="lastName" type="text" required />
                 </div>
               </div>
 
@@ -113,28 +82,17 @@ export default function Signup() {
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
                   placeholder="m@example.com"
                   required
-                  value={user.email}
-                  onChange={(e) =>
-                    setUser((prev) => ({ ...prev, email: e.target.value }))
-                  }
                 />
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
                 </div>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  value={user.password}
-                  onChange={(e) =>
-                    setUser((prev) => ({ ...prev, password: e.target.value }))
-                  }
-                />
+                <Input id="password" name="password" type="password" required />
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">
@@ -142,18 +100,14 @@ export default function Signup() {
                 </div>
                 <Input
                   id="confirmPassword"
+                  name="confirmPassword"
                   type="password"
                   required
-                  value={user.confirmPassword}
-                  onChange={(e) =>
-                    setUser((prev) => ({
-                      ...prev,
-                      confirmPassword: e.target.value,
-                    }))
-                  }
                 />
               </div>
-              <Button type="submit">Create account</Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? 'Creating account...' : 'Create account'}
+              </Button>
             </form>
           </CardContent>
           <CardFooter className="mt-4 flex flex-col gap-2">

@@ -12,31 +12,31 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Logo } from '@/components/ui/logo'
-import { supabase } from '@/utils/supabase.client'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
+import { login } from './actions'
+
 export default function Login() {
   const router = useRouter()
-  const [userData, setUserData] = useState({
-    email: '',
-    password: '',
-  })
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: userData.email,
-      password: userData.password,
-    })
+    setIsLoading(true)
 
-    if (error) {
-      toast.error(error.message)
+    const formData = new FormData(e.currentTarget)
+    const result = await login(formData)
+
+    if (result.error) {
+      toast.error(result.error)
+      setIsLoading(false)
+      return
     }
 
-    if (data.user) {
+    if (result.success) {
       router.push('/dashboard')
     }
   }
@@ -63,30 +63,21 @@ export default function Login() {
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
                   placeholder="m@example.com"
                   required
-                  value={userData.email}
-                  onChange={(e) =>
-                    setUserData({ ...userData, email: e.target.value })
-                  }
                 />
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
                 </div>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  value={userData.password}
-                  onChange={(e) =>
-                    setUserData({ ...userData, password: e.target.value })
-                  }
-                />
+                <Input id="password" name="password" type="password" required />
               </div>
-              <Button type="submit">Sign in</Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? 'Signing in...' : 'Sign in'}
+              </Button>
             </form>
           </CardContent>
           <CardFooter className="mt-4 flex flex-col gap-2">

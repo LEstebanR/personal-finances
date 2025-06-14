@@ -1,5 +1,6 @@
 'use client'
 
+import { logout } from '@/app/login/actions'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -11,7 +12,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Logo } from '@/components/ui/logo'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import { supabase } from '@/utils/supabase.client'
 import { AvatarFallback } from '@radix-ui/react-avatar'
 import { User } from '@supabase/supabase-js'
 import { LogIn, LogOut, MenuIcon, UserPlus } from 'lucide-react'
@@ -26,9 +26,11 @@ function HeaderContent({ user, path }: { user?: User | null; path?: string }) {
   const searchParams = useSearchParams()
   const currentView = Array.from(searchParams.entries())[0]?.[0]
 
-  const logout = async () => {
-    await supabase.auth.signOut()
-    router.push('/')
+  const handleLogout = async () => {
+    const result = await logout()
+    if (result.success) {
+      router.push('/')
+    }
   }
 
   return (
@@ -64,7 +66,7 @@ function HeaderContent({ user, path }: { user?: User | null; path?: string }) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={logout}
+                onClick={handleLogout}
                 className="flex items-center gap-2"
               >
                 <LogOut className="h-4 w-4" />

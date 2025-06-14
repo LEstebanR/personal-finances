@@ -14,3 +14,52 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model Account {
+  id             String        @id @default(uuid())
+  userId         String
+  name           String
+  type           String
+  initialBalance Decimal
+  createdAt      DateTime      @default(now())
+  color          String
+  isArchived     Boolean       @default(false)
+  transactions   Transaction[]
+  fromTransfers  Transfer[]    @relation("FromAccount")
+  toTransfers    Transfer[]    @relation("ToAccount")
+
+  @@index([userId])
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  accountId   String
+  userId      String
+  amount      Decimal
+  type        String
+  description String
+  date        DateTime
+  category    String?
+  createdAt   DateTime @default(now())
+  account     Account  @relation(fields: [accountId], references: [id])
+
+  @@index([userId])
+  @@index([accountId])
+}
+
+model Transfer {
+  id           String   @id @default(uuid())
+  userId       String
+  fromAccountId String
+  toAccountId   String
+  amount       Decimal
+  date         DateTime
+  note         String?
+  createdAt    DateTime @default(now())
+  fromAccount  Account  @relation("FromAccount", fields: [fromAccountId], references: [id])
+  toAccount    Account  @relation("ToAccount", fields: [toAccountId], references: [id])
+
+  @@index([userId])
+  @@index([fromAccountId])
+  @@index([toAccountId])
+}
+

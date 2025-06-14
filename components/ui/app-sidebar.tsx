@@ -9,7 +9,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
-import { Home, Wallet } from 'lucide-react'
+import { CreditCard, Home, Wallet } from 'lucide-react'
 import Link from 'next/link'
 
 import { Logo } from './logo'
@@ -24,6 +24,11 @@ const OPTIONS = [
     icon: <Wallet />,
     label: 'Accounts',
     href: '?accounts',
+  },
+  {
+    icon: <CreditCard />,
+    label: 'Transactions',
+    href: '?transactions',
   },
 ]
 
