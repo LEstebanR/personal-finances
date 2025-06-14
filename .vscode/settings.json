@@ -1,0 +1,19 @@
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "prettier.enable": true,
+  "vim.enabled": true,
+  "vim.useCtrlKeys": true,
+  "vim.handleKeys": {
+    "<C-c>": false,
+    "<C-v>": false,
+    "<C-x>": false,
+    "<C-a>": false,
+    "<C-f>": false,
+    "<C-z>": false,
+    "<C-y>": false
+  }
+}

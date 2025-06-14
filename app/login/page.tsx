@@ -1,3 +1,5 @@
+'use client'
+
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -10,9 +12,35 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Logo } from '@/components/ui/logo'
+import { supabase } from '@/utils/supabase.client'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { toast } from 'sonner'
 
 export default function Login() {
+  const router = useRouter()
+  const [userData, setUserData] = useState({
+    email: '',
+    password: '',
+  })
+
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: userData.email,
+      password: userData.password,
+    })
+
+    if (error) {
+      toast.error(error.message)
+    }
+
+    if (data.user) {
+      router.push('/dashboard')
+    }
+  }
+
   return (
     <div className="mx-auto mt-24 flex w-full flex-col items-center gap-4 px-4">
       <Logo />
@@ -25,7 +53,10 @@ export default function Login() {
             Enter your credentials to access your account
           </CardDescription>
           <CardContent>
-            <form className="mt-4 flex w-full flex-col gap-6">
+            <form
+              className="mt-4 flex w-full flex-col gap-6"
+              onSubmit={handleLogin}
+            >
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -33,13 +64,25 @@ export default function Login() {
                   type="email"
                   placeholder="m@example.com"
                   required
+                  value={userData.email}
+                  onChange={(e) =>
+                    setUserData({ ...userData, email: e.target.value })
+                  }
                 />
               </div>
               <div className="grid gap-2">
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
                 </div>
-                <Input id="password" type="password" required />
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={userData.password}
+                  onChange={(e) =>
+                    setUserData({ ...userData, password: e.target.value })
+                  }
+                />
               </div>
               <Button type="submit">Sign in</Button>
             </form>
