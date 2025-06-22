@@ -13,14 +13,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Logo } from '@/components/ui/logo'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { login } from './actions'
 
 export default function Login() {
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -30,14 +28,10 @@ export default function Login() {
     const formData = new FormData(e.currentTarget)
     const result = await login(formData)
 
-    if (result.error) {
+    if (result?.error) {
       toast.error(result.error)
       setIsLoading(false)
       return
-    }
-
-    if (result.success) {
-      router.push('/dashboard')
     }
   }
 
