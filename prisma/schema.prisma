@@ -14,18 +14,24 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum AccountType {
+  cash
+  savings
+}
+
 model Account {
-  id             String        @id @default(uuid())
+  id             String      @id @default(uuid()) @db.Uuid
   userId         String
   name           String
-  type           String
-  initialBalance Decimal
+  type           AccountType   @default(cash)
+  initialBalance Float
   createdAt      DateTime      @default(now())
-  color          String
   isArchived     Boolean       @default(false)
-  transactions   Transaction[]
+  transactions   Transaction[] @relation("AccountTransactions")
   fromTransfers  Transfer[]    @relation("FromAccount")
   toTransfers    Transfer[]    @relation("ToAccount")
+  description    String?
+  currentBalance Float
 
   @@index([userId])
 }
@@ -40,7 +46,7 @@ model Transaction {
   date        DateTime
   category    String?
   createdAt   DateTime @default(now())
-  account     Account  @relation(fields: [accountId], references: [id])
+  account     Account  @relation("AccountTransactions", fields: [accountId], references: [id])
 
   @@index([userId])
   @@index([accountId])

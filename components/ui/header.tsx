@@ -28,7 +28,7 @@ function HeaderContent({ user, path }: { user?: User | null; path?: string }) {
 
   const handleLogout = async () => {
     const result = await logout()
-    if (result.success) {
+    if (!result.error) {
       router.push('/')
     }
   }

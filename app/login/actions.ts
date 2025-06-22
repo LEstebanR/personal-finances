@@ -1,6 +1,7 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/client'
+import { createClient } from '@/utils/supabase/server'
+import { redirect } from 'next/navigation'
 
 export async function login(formData: FormData) {
   const email = formData.get('email') as string
@@ -16,7 +17,7 @@ export async function login(formData: FormData) {
     return { error: error.message }
   }
 
-  return { success: true }
+  redirect('/dashboard')
 }
 
 export async function logout() {
@@ -27,5 +28,5 @@ export async function logout() {
     return { error: error.message }
   }
 
-  return { success: true }
+  redirect('/')
 }

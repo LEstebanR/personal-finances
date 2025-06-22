@@ -2,7 +2,7 @@ import { AppSidebar } from '@/components/ui/app-sidebar'
 import { Footer } from '@/components/ui/footer'
 import { Header } from '@/components/ui/header'
 import { SidebarProvider } from '@/components/ui/sidebar'
-import { createClient } from '@/utils/supabase/client'
+import { createClient } from '@/utils/supabase/server'
 
 export default async function AuthenticatedLayout({
   children,
