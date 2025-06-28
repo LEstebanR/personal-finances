@@ -49,7 +49,7 @@ export function Accounts() {
       .from('Account')
       .select('*')
       .eq('userId', currentUser.id)
-      .order('', { ascending: false })
+      .order('createdAt', { ascending: false })
 
     if (error) {
       console.error('Error loading accounts:', error)
