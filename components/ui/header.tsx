@@ -46,7 +46,7 @@ function HeaderContent({ user, path }: { user?: User | null; path?: string }) {
             <Logo />
           </Link>
           <h2 className="hidden text-lg font-bold capitalize md:block">
-            {currentView}
+            {currentView || 'Accounts'}
           </h2>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

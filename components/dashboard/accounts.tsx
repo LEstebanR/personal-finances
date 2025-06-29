@@ -41,6 +41,8 @@ export function Accounts() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Función para cargar accounts
   const loadAccounts = async (currentUser: User) => {
@@ -87,11 +89,13 @@ export function Accounts() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    setIsSubmitting(true)
     const formData = new FormData(e.currentTarget)
     const supabase = supabaseClient()
 
     if (!user) {
       console.error('User not authenticated')
+      setIsSubmitting(false)
       return
     }
 
@@ -121,7 +125,11 @@ export function Accounts() {
       }
       // Reset form
       e.currentTarget?.reset()
+      // Cerrar el diálogo
+      setIsDialogOpen(false)
     }
+
+    setIsSubmitting(false)
   }
 
   // Componente para renderizar una account card
@@ -176,7 +184,7 @@ export function Accounts() {
           Create your first {typeLabel.toLowerCase()} account to start tracking
           your money.
         </p>
-        <Dialog>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <PlusIcon className="mr-2 h-4 w-4" />
@@ -230,8 +238,15 @@ export function Accounts() {
                   className="resize-none"
                 />
               </div>
-              <Button className="w-full" type="submit">
-                Add Account
+              <Button className="w-full" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Account...
+                  </>
+                ) : (
+                  'Add Account'
+                )}
               </Button>
             </form>
           </DialogContent>
@@ -244,7 +259,7 @@ export function Accounts() {
     <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
       <div className="flex w-full justify-between">
         <h1 className="text-2xl font-bold">Accounts</h1>
-        <Dialog>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <PlusIcon className="size-4" />
@@ -298,8 +313,15 @@ export function Accounts() {
                   className="resize-none"
                 />
               </div>
-              <Button className="w-full" type="submit">
-                Add Account
+              <Button className="w-full" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Account...
+                  </>
+                ) : (
+                  'Add Account'
+                )}
               </Button>
             </form>
           </DialogContent>
@@ -309,7 +331,7 @@ export function Accounts() {
       {/* Lista de accounts con tabs */}
       <div className="mt-6 w-full">
         {loading ? (
-          <Loader />
+          <Loader className="m-auto h-8 w-8 animate-spin" />
         ) : accounts.length === 0 ? (
           <p className="text-center text-gray-500">
             No accounts found. Create your first account!
