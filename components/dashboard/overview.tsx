@@ -63,7 +63,7 @@ export function Overview() {
       .order('createdAt', { ascending: false })
 
     if (error) {
-      console.error('Error loading accounts:', error)
+      console.error('Error loading accounts:', error, user)
     } else {
       setAccounts(accounts || [])
     }
