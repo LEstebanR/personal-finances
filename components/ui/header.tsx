@@ -76,7 +76,7 @@ function HeaderContent({ user, path }: { user?: User | null; path?: string }) {
           </DropdownMenu>
         </>
       ) : (
-        <>
+        <div className="gap-4w-full mx-auto flex w-full border-spacing-7 items-center justify-between md:w-8/12">
           <Link className="cursor-pointer" href="/">
             <Logo />
           </Link>
@@ -107,7 +107,7 @@ function HeaderContent({ user, path }: { user?: User | null; path?: string }) {
               </Link>
             </DropdownMenuContent>
           </DropdownMenu>
-        </>
+        </div>
       )}
     </header>
   )

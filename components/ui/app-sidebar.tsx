@@ -9,12 +9,12 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
-import { CreditCard, Home, Wallet } from 'lucide-react'
+import { CreditCard, Home, Settings, User, Wallet } from 'lucide-react'
 import Link from 'next/link'
 
 import { Logo } from './logo'
 
-const OPTIONS = [
+const OPTIONS_MENU = [
   {
     icon: <Home />,
     label: 'Overview',
@@ -32,6 +32,19 @@ const OPTIONS = [
   },
 ]
 
+const OPTIONS_SETTINGS = [
+  {
+    icon: <User />,
+    label: 'Profile',
+    href: '?profile',
+  },
+  {
+    icon: <Settings />,
+    label: 'Settings',
+    href: '?settings',
+  },
+]
+
 export function AppSidebar() {
   return (
     <Sidebar className="">
@@ -43,7 +56,25 @@ export function AppSidebar() {
           <SidebarGroupLabel>Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {OPTIONS.map((option) => {
+              {OPTIONS_MENU.map((option) => {
+                return (
+                  <SidebarMenuItem key={option.label}>
+                    <SidebarMenuButton className="cursor-pointer" asChild>
+                      <Link href={option.href}>
+                        {option.icon} {option.label}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>User Settings</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {OPTIONS_SETTINGS.map((option) => {
                 return (
                   <SidebarMenuItem key={option.label}>
                     <SidebarMenuButton className="cursor-pointer" asChild>

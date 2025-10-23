@@ -21,7 +21,7 @@ export default function Home() {
       <Header path={pathname} />
       <section
         id="#hero"
-        className="mt-24 flex flex-col items-center justify-center gap-4 text-center md:w-8/12"
+        className="mt-24 flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center gap-4 text-center md:w-8/12"
       >
         <h2 className="text-5xl font-bold">Take control of your finances</h2>
         <p className="text-muted-foreground text-2xl">
