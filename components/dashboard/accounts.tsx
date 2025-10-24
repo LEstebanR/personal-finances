@@ -12,6 +12,7 @@ import { supabaseClient } from '@/utils/supabase'
 import { User } from '@supabase/supabase-js'
 import { Loader, PiggyBank, PlusIcon, Wallet } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -32,6 +33,7 @@ interface Account {
   name: string
   type: string
   initialBalance: number | string
+  currentBalance: number | string
   description: string | null
   createdAt: string
   isArchived: boolean
@@ -99,6 +101,13 @@ export function Accounts() {
       return
     }
 
+    // Verificar sesión del usuario
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+    console.log('Current session:', session)
+    console.log('User ID:', user.id)
+
     const accountData = {
       id: crypto.randomUUID(),
       userId: user.id,
@@ -106,6 +115,7 @@ export function Accounts() {
       type: formData.get('accountType') as string,
       initialBalance: parseFloat(formData.get('initialBalance') as string),
       description: formData.get('description') as string,
+      currentBalance: parseFloat(formData.get('initialBalance') as string),
     }
 
     console.log('Account Data to insert:', accountData)
@@ -117,8 +127,12 @@ export function Accounts() {
 
     if (error) {
       console.error('Insert error:', error)
+      toast.error('Failed to create account. Please try again.')
     } else {
       console.log('Account created successfully:', data)
+      toast.success(`Account "${accountData.name}" created successfully!`, {
+        description: `Balance: $${accountData.currentBalance.toFixed(2)}`,
+      })
       // Recargar accounts después de crear
       if (user) {
         await loadAccounts(user)
@@ -158,7 +172,7 @@ export function Accounts() {
           <p className="mb-1 text-sm text-gray-500">Current Balance</p>
           <p className="text-3xl font-bold text-gray-900">
             $
-            {Number(account.initialBalance).toLocaleString('en-US', {
+            {Number(account.currentBalance).toLocaleString('en-US', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}

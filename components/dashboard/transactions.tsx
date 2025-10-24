@@ -4,6 +4,7 @@ import { supabaseClient } from '@/utils/supabase'
 import { User } from '@supabase/supabase-js'
 import { Loader, PlusIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 
 import { Button } from '../ui/button'
 import {
@@ -40,6 +41,7 @@ interface Account {
   name: string
   type: string
   initialBalance: number | string
+  currentBalance: number | string
   description: string | null
   createdAt: string
   isArchived: boolean
@@ -57,8 +59,29 @@ interface Transaction {
   createdAt: string
 }
 
+interface Transfer {
+  id: string
+  userId: string
+  fromAccountId: string
+  toAccountId: string
+  amount: number
+  date: string
+  note: string | null
+  createdAt: string
+}
+
+type CombinedItem =
+  | (Transaction & { itemType: 'transaction'; accountName?: string })
+  | (Transfer & {
+      itemType: 'transfer'
+      fromAccountName?: string
+      toAccountName?: string
+    })
+
 export function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [transfers, setTransfers] = useState<Transfer[]>([])
+  const [combinedItems, setCombinedItems] = useState<CombinedItem[]>([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -67,10 +90,12 @@ export function Transactions() {
   const [loadingAccounts, setLoadingAccounts] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [transactionsPerPage] = useState(10)
+  const [transactionType, setTransactionType] = useState<string>('')
 
   // Función para cargar transacciones
   const loadTransactions = async (currentUser: User) => {
     const supabase = supabaseClient()
+    console.log('Loading transactions for user:', currentUser.id)
     const { data: transactions, error } = await supabase
       .from('Transaction')
       .select('*')
@@ -79,27 +104,95 @@ export function Transactions() {
 
     if (error) {
       console.error('Error loading transactions:', error)
+      console.error('Full error:', JSON.stringify(error, null, 2))
     } else {
+      console.log(
+        'Transactions loaded:',
+        transactions?.length || 0,
+        transactions
+      )
       setTransactions(transactions || [])
     }
   }
 
+  // Función para cargar transferencias
+  const loadTransfers = async (currentUser: User) => {
+    const supabase = supabaseClient()
+    console.log('Loading transfers for user:', currentUser.id)
+    const { data: transfers, error } = await supabase
+      .from('Transfer')
+      .select('*')
+      .eq('userId', currentUser.id)
+      .order('createdAt', { ascending: false })
+
+    if (error) {
+      console.error('Error loading transfers:', error)
+      console.error('Full error:', JSON.stringify(error, null, 2))
+    } else {
+      console.log('Transfers loaded:', transfers?.length || 0, transfers)
+      setTransfers(transfers || [])
+    }
+  }
+
+  // Función para combinar transacciones y transferencias
+  const combineTransactionsAndTransfers = async () => {
+    console.log(
+      'Combining items - Transactions:',
+      transactions.length,
+      'Transfers:',
+      transfers.length,
+      'Accounts:',
+      availableAccounts.length
+    )
+
+    // Crear un mapa de nombres de cuentas
+    const accountMap = new Map<string, string>()
+    for (const account of availableAccounts) {
+      accountMap.set(account.id, account.name)
+    }
+
+    const transactionItems: CombinedItem[] = transactions.map((t) => ({
+      ...t,
+      itemType: 'transaction' as const,
+      accountName: accountMap.get(t.accountId),
+    }))
+
+    const transferItems: CombinedItem[] = transfers.map((t) => ({
+      ...t,
+      itemType: 'transfer' as const,
+      fromAccountName: accountMap.get(t.fromAccountId),
+      toAccountName: accountMap.get(t.toAccountId),
+    }))
+
+    // Combinar y ordenar por fecha de creación
+    const combined = [...transactionItems, ...transferItems].sort((a, b) => {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
+
+    console.log('Combined items:', combined.length)
+    setCombinedItems(combined)
+  }
+
   // Función para cargar cuentas disponibles para el select
   const loadAvailableAccounts = async () => {
-    if (!user) return
+    const supabase = supabaseClient()
+
+    // Obtener el usuario actual si no está disponible
+    const currentUser = user || (await supabase.auth.getUser()).data.user
+    if (!currentUser) return
 
     setLoadingAccounts(true)
-    const supabase = supabaseClient()
     const { data: accounts, error } = await supabase
       .from('Account')
       .select('*')
-      .eq('userId', user.id)
+      .eq('userId', currentUser.id)
       .eq('isArchived', false)
       .order('name', { ascending: true })
 
     if (error) {
       console.error('Error loading available accounts:', error)
     } else {
+      console.log('Available accounts loaded:', accounts?.length || 0)
       setAvailableAccounts(accounts || [])
     }
     setLoadingAccounts(false)
@@ -118,6 +211,9 @@ export function Transactions() {
 
       if (user) {
         await loadTransactions(user)
+        await loadTransfers(user)
+        // Cargar cuentas disponibles para mapear nombres
+        await loadAvailableAccounts()
       }
 
       setLoading(false)
@@ -126,21 +222,48 @@ export function Transactions() {
     loadUserAndTransactions()
   }, [])
 
-  // Filtrar transacciones por tipo
-  const filterTransactionsByType = (type: 'all' | 'income' | 'expense') => {
-    if (type === 'all') return transactions
-    return transactions.filter((transaction) => transaction.type === type)
+  // Combinar transacciones y transferencias cuando cambien
+  useEffect(() => {
+    // Combinar incluso si availableAccounts está vacío
+    // Los nombres se mostrarán cuando las cuentas se carguen
+    if (transactions.length > 0 || transfers.length > 0) {
+      combineTransactionsAndTransfers()
+    }
+    console.log(
+      'Rendering - combinedItems:',
+      combinedItems.length,
+      'loading:',
+      loading,
+      'transactions:',
+      transactions.length,
+      'transfers:',
+      transfers.length
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, transfers, availableAccounts])
+
+  // Filtrar items combinados por tipo
+  const filterItemsByType = (
+    type: 'all' | 'income' | 'expense' | 'transfer'
+  ) => {
+    if (type === 'all') return combinedItems
+    if (type === 'transfer') {
+      return combinedItems.filter((item) => item.itemType === 'transfer')
+    }
+    return combinedItems.filter(
+      (item) => item.itemType === 'transaction' && item.type === type
+    )
   }
 
   // Paginación
-  const paginate = (transactions: Transaction[], page: number) => {
+  const paginate = (items: CombinedItem[], page: number) => {
     const startIndex = (page - 1) * transactionsPerPage
     const endIndex = startIndex + transactionsPerPage
-    return transactions.slice(startIndex, endIndex)
+    return items.slice(startIndex, endIndex)
   }
 
-  const getTotalPages = (transactions: Transaction[]) => {
-    return Math.ceil(transactions.length / transactionsPerPage)
+  const getTotalPages = (items: CombinedItem[]) => {
+    return Math.ceil(items.length / transactionsPerPage)
   }
 
   // Función para actualizar el balance de una cuenta
@@ -155,10 +278,10 @@ export function Transactions() {
       `Updating balance for account: ${accountId}, amount: ${amount}, type: ${type}`
     )
 
-    // Obtener la cuenta - usar solo initialBalance por ahora para evitar problemas con currentBalance
+    // Obtener la cuenta con su balance actual
     const { data: account, error: fetchError } = await supabase
       .from('Account')
-      .select('id, name, initialBalance')
+      .select('id, name, currentBalance')
       .eq('id', accountId)
       .single()
 
@@ -177,8 +300,8 @@ export function Transactions() {
 
     console.log('Account found:', account)
 
-    // Por ahora usar initialBalance como currentBalance hasta que se resuelva el schema
-    const currentBalance = account.initialBalance ?? 0
+    // Obtener el balance actual de la cuenta
+    const currentBalance = account.currentBalance ?? 0
     const newBalance =
       type === 'income' ? currentBalance + amount : currentBalance - amount
 
@@ -186,10 +309,10 @@ export function Transactions() {
       `Balance calculation: ${currentBalance} ${type === 'income' ? '+' : '-'} ${amount} = ${newBalance}`
     )
 
-    // Actualizar el balance en la base de datos (usando initialBalance por ahora)
+    // Actualizar el balance actual en la base de datos
     const { error: updateError } = await supabase
       .from('Account')
-      .update({ initialBalance: newBalance })
+      .update({ currentBalance: newBalance })
       .eq('id', accountId)
 
     if (updateError) {
@@ -199,6 +322,66 @@ export function Transactions() {
         `Account balance updated successfully: ${currentBalance} -> ${newBalance}`
       )
     }
+  }
+
+  // Función para actualizar balances en una transferencia
+  const updateBalancesForTransfer = async (
+    fromAccountId: string,
+    toAccountId: string,
+    amount: number
+  ) => {
+    const supabase = supabaseClient()
+
+    // Obtener ambas cuentas
+    const { data: fromAccount, error: fromError } = await supabase
+      .from('Account')
+      .select('id, name, currentBalance')
+      .eq('id', fromAccountId)
+      .single()
+
+    const { data: toAccount, error: toError } = await supabase
+      .from('Account')
+      .select('id, name, currentBalance')
+      .eq('id', toAccountId)
+      .single()
+
+    if (fromError || toError || !fromAccount || !toAccount) {
+      console.error('Error fetching accounts:', fromError || toError)
+      return false
+    }
+
+    // Calcular nuevos balances
+    const fromNewBalance = (fromAccount.currentBalance ?? 0) - amount
+    const toNewBalance = (toAccount.currentBalance ?? 0) + amount
+
+    console.log(
+      `Transfer: ${fromAccount.name} (${fromAccount.currentBalance}) - ${amount} = ${fromNewBalance}`
+    )
+    console.log(
+      `Transfer: ${toAccount.name} (${toAccount.currentBalance}) + ${amount} = ${toNewBalance}`
+    )
+
+    // Actualizar ambas cuentas
+    const { error: fromUpdateError } = await supabase
+      .from('Account')
+      .update({ currentBalance: fromNewBalance })
+      .eq('id', fromAccountId)
+
+    const { error: toUpdateError } = await supabase
+      .from('Account')
+      .update({ currentBalance: toNewBalance })
+      .eq('id', toAccountId)
+
+    if (fromUpdateError || toUpdateError) {
+      console.error(
+        'Error updating balances:',
+        fromUpdateError || toUpdateError
+      )
+      return false
+    }
+
+    console.log('Balances updated successfully')
+    return true
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -213,46 +396,127 @@ export function Transactions() {
       return
     }
 
-    const transactionData = {
-      id: crypto.randomUUID(),
-      userId: user.id,
-      accountId: formData.get('accountId') as string,
-      amount: parseFloat(formData.get('amount') as string),
-      type: formData.get('type') as string,
-      description: formData.get('description') as string,
-      date: formData.get('date') as string,
-      category: (formData.get('category') as string) || null,
-    }
+    const type = formData.get('type') as string
 
-    console.log('Transaction Data to insert:', transactionData)
+    // Si es una transferencia, usar la tabla Transfer
+    if (type === 'transfer') {
+      const fromAccountId = formData.get('fromAccountId') as string
+      const toAccountId = formData.get('toAccountId') as string
+      const amount = parseFloat(formData.get('amount') as string)
+      const note = formData.get('description') as string
+      const date = formData.get('date') as string
 
-    const { data, error } = await supabase
-      .from('Transaction')
-      .insert([transactionData])
-      .select()
-
-    if (error) {
-      console.error('Insert error:', error)
-    } else {
-      console.log('Transaction created successfully:', data)
-
-      // Actualizar el balance de la cuenta
-      await updateAccountBalance(
-        transactionData.accountId,
-        transactionData.amount,
-        transactionData.type
-      )
-
-      // Recargar transacciones después de crear
-      if (user) {
-        await loadTransactions(user)
+      const transferData = {
+        id: crypto.randomUUID(),
+        userId: user.id,
+        fromAccountId: fromAccountId,
+        toAccountId: toAccountId,
+        amount: amount,
+        date: date,
+        note: note,
       }
-      // Reset form
-      e.currentTarget?.reset()
-      // Cerrar el diálogo
-      setIsDialogOpen(false)
-      // Reset pagination
-      setCurrentPage(1)
+
+      console.log('Transfer Data to insert:', transferData)
+
+      const { data, error } = await supabase
+        .from('Transfer')
+        .insert([transferData])
+        .select()
+
+      if (error) {
+        console.error('Transfer error:', error)
+        toast.error('Failed to create transfer. Please try again.')
+      } else {
+        console.log('Transfer created successfully:', data)
+
+        // Actualizar balances de ambas cuentas
+        const success = await updateBalancesForTransfer(
+          fromAccountId,
+          toAccountId,
+          amount
+        )
+
+        if (success && user) {
+          await loadTransactions(user)
+          await loadTransfers(user)
+
+          // Encontrar nombres de cuentas para el toast
+          const fromAccount = availableAccounts.find(
+            (a) => a.id === fromAccountId
+          )
+          const toAccount = availableAccounts.find((a) => a.id === toAccountId)
+
+          toast.success('Transfer completed successfully!', {
+            description: `$${amount.toFixed(2)} from ${fromAccount?.name || 'Account'} to ${toAccount?.name || 'Account'}`,
+          })
+        } else {
+          toast.error('Transfer created but failed to update balances.')
+        }
+
+        // Reset form
+        e.currentTarget?.reset()
+        setTransactionType('')
+        // Cerrar el diálogo
+        setIsDialogOpen(false)
+        // Reset pagination
+        setCurrentPage(1)
+      }
+    } else {
+      // Transacción normal (income o expense)
+      const transactionData = {
+        id: crypto.randomUUID(),
+        userId: user.id,
+        accountId: formData.get('accountId') as string,
+        amount: parseFloat(formData.get('amount') as string),
+        type: type,
+        description: formData.get('description') as string,
+        date: formData.get('date') as string,
+        category: (formData.get('category') as string) || null,
+      }
+
+      console.log('Transaction Data to insert:', transactionData)
+
+      const { data, error } = await supabase
+        .from('Transaction')
+        .insert([transactionData])
+        .select()
+
+      if (error) {
+        console.error('Insert error:', error)
+        toast.error('Failed to create transaction. Please try again.')
+      } else {
+        console.log('Transaction created successfully:', data)
+
+        // Actualizar el balance de la cuenta
+        await updateAccountBalance(
+          transactionData.accountId,
+          transactionData.amount,
+          transactionData.type
+        )
+
+        const account = availableAccounts.find(
+          (a) => a.id === transactionData.accountId
+        )
+        const typeLabel =
+          transactionData.type === 'income' ? 'Income' : 'Expense'
+
+        toast.success(`${typeLabel} transaction created!`, {
+          description: `${transactionData.type === 'income' ? '+' : '-'}$${transactionData.amount.toFixed(2)} • ${account?.name || 'Account'}`,
+        })
+
+        // Recargar transacciones después de crear
+        if (user) {
+          await loadTransactions(user)
+          await loadTransfers(user)
+        }
+        // Reset form
+        e.currentTarget?.reset()
+        setTransactionType('')
+        // Cerrar el diálogo
+        setIsDialogOpen(false)
+        // Reset pagination
+        setCurrentPage(1)
+      }
     }
 
     setIsSubmitting(false)
@@ -268,6 +532,8 @@ export function Transactions() {
             setIsDialogOpen(open)
             if (open) {
               loadAvailableAccounts()
+            } else {
+              setTransactionType('')
             }
           }}
         >
@@ -286,38 +552,93 @@ export function Transactions() {
             </DialogDescription>
             <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
               <div className="flex flex-col gap-1">
-                <Label>Account</Label>
-                <Select name="accountId" required>
-                  <SelectTrigger className="w-full">
-                    <SelectValue
-                      placeholder={
-                        loadingAccounts
-                          ? 'Loading accounts...'
-                          : 'Select an account'
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableAccounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.name} ({account.type})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1">
                 <Label>Transaction Type</Label>
-                <Select name="type" required>
+                <Select
+                  name="type"
+                  required
+                  onValueChange={(value) => setTransactionType(value)}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select transaction type" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="income">Income</SelectItem>
                     <SelectItem value="expense">Expense</SelectItem>
+                    <SelectItem value="transfer">Transfer</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {transactionType === 'transfer' ? (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <Label>From Account</Label>
+                    <Select name="fromAccountId" required>
+                      <SelectTrigger className="w-full">
+                        <SelectValue
+                          placeholder={
+                            loadingAccounts
+                              ? 'Loading accounts...'
+                              : 'Select source account'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableAccounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.name} ({account.type})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label>To Account</Label>
+                    <Select name="toAccountId" required>
+                      <SelectTrigger className="w-full">
+                        <SelectValue
+                          placeholder={
+                            loadingAccounts
+                              ? 'Loading accounts...'
+                              : 'Select destination account'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableAccounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.name} ({account.type})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              ) : (
+                transactionType && (
+                  <div className="flex flex-col gap-1">
+                    <Label>Account</Label>
+                    <Select name="accountId" required>
+                      <SelectTrigger className="w-full">
+                        <SelectValue
+                          placeholder={
+                            loadingAccounts
+                              ? 'Loading accounts...'
+                              : 'Select an account'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableAccounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.name} ({account.type})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )
+              )}
               <div className="flex flex-col gap-1">
                 <Label>Amount</Label>
                 <Input
@@ -337,10 +658,12 @@ export function Transactions() {
                   defaultValue={new Date().toISOString().split('T')[0]}
                 />
               </div>
-              <div className="flex flex-col gap-1">
-                <Label>Category (Optional)</Label>
-                <Input type="text" name="category" placeholder="Category" />
-              </div>
+              {transactionType !== 'transfer' && (
+                <div className="flex flex-col gap-1">
+                  <Label>Category (Optional)</Label>
+                  <Input type="text" name="category" placeholder="Category" />
+                </div>
+              )}
               <div className="flex flex-col gap-1">
                 <Label>Description</Label>
                 <Textarea
@@ -365,37 +688,39 @@ export function Transactions() {
         </Dialog>
       </div>
 
-      {/* Lista de transacciones con tabs */}
+      {/* Lista de transacciones y transferencias con tabs */}
       <div className="mt-6 w-full">
         {loading ? (
           <div className="flex justify-center">
             <Loader className="h-8 w-8 animate-spin" />
           </div>
-        ) : transactions.length === 0 ? (
+        ) : combinedItems.length === 0 ? (
           <p className="text-center text-gray-500">
-            No transactions found. Create your first transaction!
+            No transactions or transfers found. Create your first one!
           </p>
         ) : (
           <Tabs defaultValue="all" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="all">All ({transactions.length})</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="all">
+                All ({combinedItems.length})
+              </TabsTrigger>
               <TabsTrigger value="income">
-                Income ({filterTransactionsByType('income').length})
+                Income ({filterItemsByType('income').length})
               </TabsTrigger>
               <TabsTrigger value="expense">
-                Expenses ({filterTransactionsByType('expense').length})
+                Expenses ({filterItemsByType('expense').length})
+              </TabsTrigger>
+              <TabsTrigger value="transfer">
+                Transfers ({filterItemsByType('transfer').length})
               </TabsTrigger>
             </TabsList>
 
-            {['all', 'income', 'expense'].map((tabType) => {
-              const filteredTransactions = filterTransactionsByType(
-                tabType as 'all' | 'income' | 'expense'
+            {['all', 'income', 'expense', 'transfer'].map((tabType) => {
+              const filteredItems = filterItemsByType(
+                tabType as 'all' | 'income' | 'expense' | 'transfer'
               )
-              const paginatedTransactions = paginate(
-                filteredTransactions,
-                currentPage
-              )
-              const totalPages = getTotalPages(filteredTransactions)
+              const paginatedItems = paginate(filteredItems, currentPage)
+              const totalPages = getTotalPages(filteredItems)
 
               return (
                 <TabsContent key={tabType} value={tabType} className="mt-6">
@@ -404,52 +729,74 @@ export function Transactions() {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Description</TableHead>
-                          <TableHead>Category</TableHead>
-                          <TableHead>Type</TableHead>
+                          <TableHead>Account</TableHead>
+                          <TableHead>Category/Type</TableHead>
                           <TableHead>Amount</TableHead>
                           <TableHead>Date</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {paginatedTransactions.map((transaction) => (
-                          <TableRow key={transaction.id}>
+                        {paginatedItems.map((item) => (
+                          <TableRow key={item.id}>
                             <TableCell className="font-medium">
-                              {transaction.description}
+                              {item.itemType === 'transaction'
+                                ? item.description
+                                : item.note || 'Transfer'}
                             </TableCell>
                             <TableCell>
-                              {transaction.category ? (
-                                <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800">
-                                  {transaction.category}
-                                </span>
+                              {item.itemType === 'transaction' ? (
+                                item.accountName || '-'
                               ) : (
-                                <span className="text-gray-400">-</span>
+                                <span className="text-xs">
+                                  {item.fromAccountName} → {item.toAccountName}
+                                </span>
                               )}
                             </TableCell>
                             <TableCell>
-                              <span
-                                className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                                  transaction.type === 'income'
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}
-                              >
-                                {transaction.type}
-                              </span>
+                              {item.itemType === 'transaction' ? (
+                                <>
+                                  <span
+                                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                                      item.type === 'income'
+                                        ? 'bg-green-100 text-green-800'
+                                        : 'bg-red-100 text-red-800'
+                                    }`}
+                                  >
+                                    {item.type}
+                                  </span>
+                                  <div className="mt-1 text-xs text-gray-500">
+                                    {item.category || '-'}
+                                  </div>
+                                </>
+                              ) : (
+                                <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800">
+                                  Transfer
+                                </span>
+                              )}
                             </TableCell>
-                            <TableCell>
-                              <span
-                                className={`font-bold ${
-                                  transaction.type === 'income'
+                            <TableCell
+                              className={
+                                item.itemType === 'transaction'
+                                  ? item.type === 'income'
                                     ? 'text-green-600'
                                     : 'text-red-600'
-                                }`}
-                              >
-                                {transaction.type === 'income' ? '+' : '-'}$
-                                {Number(transaction.amount).toFixed(2)}
-                              </span>
+                                  : 'text-blue-600'
+                              }
+                            >
+                              {item.itemType === 'transaction' &&
+                              item.type === 'income'
+                                ? '+'
+                                : item.itemType === 'transaction'
+                                  ? '-'
+                                  : ''}
+                              $
+                              {Number(item.amount).toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
                             </TableCell>
                             <TableCell>
-                              {new Date(transaction.date).toLocaleDateString()}
+                              {new Date(item.date).toLocaleDateString()}
                             </TableCell>
                           </TableRow>
                         ))}
@@ -464,9 +811,9 @@ export function Transactions() {
                         Showing {(currentPage - 1) * transactionsPerPage + 1} to{' '}
                         {Math.min(
                           currentPage * transactionsPerPage,
-                          filteredTransactions.length
+                          filteredItems.length
                         )}{' '}
-                        of {filteredTransactions.length} transactions
+                        of {filteredItems.length} items
                       </div>
                       <div className="flex gap-2">
                         <Button

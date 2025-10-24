@@ -26,6 +26,7 @@ interface Account {
   name: string
   type: string
   initialBalance: number
+  currentBalance: number
   description: string | null
   createdAt: string
   isArchived: boolean
@@ -43,14 +44,36 @@ interface Transaction {
   createdAt: string
 }
 
+interface Transfer {
+  id: string
+  userId: string
+  fromAccountId: string
+  toAccountId: string
+  amount: number
+  date: string
+  note: string | null
+  createdAt: string
+}
+
+type CombinedItem =
+  | (Transaction & { itemType: 'transaction'; accountName?: string })
+  | (Transfer & {
+      itemType: 'transfer'
+      fromAccountName?: string
+      toAccountName?: string
+    })
+
 export function Overview() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>(
     []
   )
   const [allTransactions, setAllTransactions] = useState<Transaction[]>([])
+  const [transfers, setTransfers] = useState<Transfer[]>([])
+  const [recentItems, setRecentItems] = useState<CombinedItem[]>([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
+  console.log('accounts', accounts)
 
   // Función para cargar cuentas
   const loadAccounts = async (currentUser: User) => {
@@ -83,7 +106,54 @@ export function Overview() {
       console.error('Error loading recent transactions:', error)
     } else {
       setRecentTransactions(transactions || [])
+      setAllTransactions(transactions || [])
     }
+  }
+
+  // Función para cargar transferencias
+  const loadTransfers = async (currentUser: User) => {
+    const supabase = supabaseClient()
+    const { data: transfers, error } = await supabase
+      .from('Transfer')
+      .select('*')
+      .eq('userId', currentUser.id)
+      .order('createdAt', { ascending: false })
+
+    if (error) {
+      console.error('Error loading transfers:', error)
+    } else {
+      setTransfers(transfers || [])
+    }
+  }
+
+  // Función para combinar transacciones y transferencias recientes
+  const combineRecentItems = () => {
+    const accountMap = new Map<string, string>()
+    for (const account of accounts) {
+      accountMap.set(account.id, account.name)
+    }
+
+    const transactionItems: CombinedItem[] = recentTransactions.map((t) => ({
+      ...t,
+      itemType: 'transaction' as const,
+      accountName: accountMap.get(t.accountId),
+    }))
+
+    const transferItems: CombinedItem[] = transfers.slice(0, 5).map((t) => ({
+      ...t,
+      itemType: 'transfer' as const,
+      fromAccountName: accountMap.get(t.fromAccountId),
+      toAccountName: accountMap.get(t.toAccountId),
+    }))
+
+    const combined = [...transactionItems, ...transferItems]
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      .slice(0, 5)
+
+    setRecentItems(combined)
   }
 
   // Función para cargar todas las transacciones (para estadísticas)
@@ -118,6 +188,7 @@ export function Overview() {
           loadAccounts(user),
           loadRecentTransactions(user),
           loadAllTransactions(user),
+          loadTransfers(user),
         ])
       }
 
@@ -125,20 +196,23 @@ export function Overview() {
     }
 
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Combinar items cuando cambien transacciones, transferencias o cuentas
+  useEffect(() => {
+    if (accounts.length > 0) {
+      combineRecentItems()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recentTransactions, transfers, accounts])
 
   // Calcular balance total
   const getTotalBalance = () => {
     return accounts.reduce(
-      (total, account) => total + (account.initialBalance || 0),
+      (total, account) => total + (account.currentBalance || 0),
       0
     )
-  }
-
-  // Obtener nombre de cuenta para transacciones
-  const getAccountName = (accountId: string) => {
-    const account = accounts.find((acc) => acc.id === accountId)
-    return account?.name || 'Unknown Account'
   }
 
   // Calcular estadísticas de ingresos y gastos del mes
@@ -278,59 +352,86 @@ export function Overview() {
           </Card>
         </div>
 
-        {/* Recent Transactions */}
+        {/* Recent Transactions and Transfers */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Transactions</CardTitle>
-            <CardDescription>Your latest 5 transactions</CardDescription>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>
+              Your latest 5 transactions and transfers
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            {recentTransactions.length === 0 ? (
+            {recentItems.length === 0 ? (
               <p className="text-muted-foreground py-8 text-center">
-                No transactions found. Create your first transaction!
+                No transactions or transfers found. Create your first one!
               </p>
             ) : (
               <div className="space-y-4">
-                {recentTransactions.map((transaction) => (
+                {recentItems.map((item) => (
                   <div
-                    key={transaction.id}
+                    key={item.id}
                     className="flex items-center justify-between border-b border-gray-100 pb-4 last:border-b-0"
                   >
                     <div className="flex items-center space-x-4">
                       <div
                         className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                          transaction.type === 'income'
-                            ? 'bg-green-100 text-green-600'
-                            : 'bg-red-100 text-red-600'
+                          item.itemType === 'transaction'
+                            ? item.type === 'income'
+                              ? 'bg-green-100 text-green-600'
+                              : 'bg-red-100 text-red-600'
+                            : 'bg-blue-100 text-blue-600'
                         }`}
                       >
-                        {transaction.type === 'income' ? (
-                          <TrendingUp className="h-4 w-4" />
+                        {item.itemType === 'transaction' ? (
+                          item.type === 'income' ? (
+                            <TrendingUp className="h-4 w-4" />
+                          ) : (
+                            <TrendingDown className="h-4 w-4" />
+                          )
                         ) : (
-                          <TrendingDown className="h-4 w-4" />
+                          <Wallet className="h-4 w-4" />
                         )}
                       </div>
                       <div>
-                        <p className="font-medium">{transaction.description}</p>
+                        <p className="font-medium">
+                          {item.itemType === 'transaction'
+                            ? item.description
+                            : item.note || 'Transfer'}
+                        </p>
                         <p className="text-muted-foreground text-sm">
-                          {getAccountName(transaction.accountId)}
-                          {transaction.category && ` • ${transaction.category}`}
+                          {item.itemType === 'transaction' ? (
+                            <>
+                              {item.accountName}
+                              {item.category && ` • ${item.category}`}
+                            </>
+                          ) : (
+                            <>
+                              {item.fromAccountName} → {item.toAccountName}
+                            </>
+                          )}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p
                         className={`font-bold ${
-                          transaction.type === 'income'
-                            ? 'text-green-600'
-                            : 'text-red-600'
+                          item.itemType === 'transaction'
+                            ? item.type === 'income'
+                              ? 'text-green-600'
+                              : 'text-red-600'
+                            : 'text-blue-600'
                         }`}
                       >
-                        {transaction.type === 'income' ? '+' : '-'}$
-                        {Number(transaction.amount).toFixed(2)}
+                        {item.itemType === 'transaction' &&
+                        item.type === 'income'
+                          ? '+'
+                          : item.itemType === 'transaction'
+                            ? '-'
+                            : ''}
+                        ${Number(item.amount).toFixed(2)}
                       </p>
                       <p className="text-muted-foreground text-sm">
-                        {new Date(transaction.date).toLocaleDateString()}
+                        {new Date(item.date).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
@@ -379,7 +480,7 @@ export function Overview() {
                         </p>
                         <p className="text-xl font-bold">
                           $
-                          {Number(account.initialBalance).toLocaleString(
+                          {Number(account.currentBalance).toLocaleString(
                             'en-US',
                             {
                               minimumFractionDigits: 2,
