@@ -1,23 +1,19 @@
+import { getSessionCookie } from 'better-auth/cookies'
 import { type NextRequest, NextResponse } from 'next/server'
 
-import { createClient } from './utils/supabase/middleware'
-
 export async function middleware(request: NextRequest) {
-  const { supabase, response } = createClient(request)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const sessionCookie = getSessionCookie(request)
 
-  // Allow access to login and dashboard routes without authentication
   if (
-    !user &&
+    !sessionCookie &&
     request.nextUrl.pathname !== '/' &&
     request.nextUrl.pathname !== '/login' &&
     request.nextUrl.pathname !== '/signup'
   ) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
-  return response
+
+  return NextResponse.next()
 }
 
 export const config = {

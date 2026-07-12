@@ -1,5 +1,6 @@
 'use client'
 
+import { createAccount, getAccounts } from '@/app/dashboard/accounts/actions'
 import {
   Dialog,
   DialogContent,
@@ -8,8 +9,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { supabaseClient } from '@/utils/supabase'
-import { User } from '@supabase/supabase-js'
 import { Loader, PiggyBank, PlusIcon, Wallet } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -32,55 +31,30 @@ interface Account {
   userId: string
   name: string
   type: string
-  initialBalance: number | string
-  currentBalance: number | string
+  initialBalance: number
+  currentBalance: number
   description: string | null
-  createdAt: string
+  createdAt: Date
   isArchived: boolean
 }
 
 export function Accounts() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<User | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Función para cargar accounts
-  const loadAccounts = async (currentUser: User) => {
-    const supabase = supabaseClient()
-    const { data: accounts, error } = await supabase
-      .from('Account')
-      .select('*')
-      .eq('userId', currentUser.id)
-      .order('createdAt', { ascending: false })
-
-    if (error) {
+  const loadAccounts = async () => {
+    try {
+      const accounts = await getAccounts()
+      setAccounts(accounts)
+    } catch (error) {
       console.error('Error loading accounts:', error)
-    } else {
-      setAccounts(accounts || [])
     }
   }
 
-  // Obtener usuario y accounts al montar el componente
   useEffect(() => {
-    const loadUserAndAccounts = async () => {
-      const supabase = supabaseClient()
-
-      // Obtener usuario
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
-
-      if (user) {
-        await loadAccounts(user)
-      }
-
-      setLoading(false)
-    }
-
-    loadUserAndAccounts()
+    loadAccounts().finally(() => setLoading(false))
   }, [])
 
   // Filtrar accounts por tipo
@@ -93,54 +67,18 @@ export function Accounts() {
     e.preventDefault()
     setIsSubmitting(true)
     const formData = new FormData(e.currentTarget)
-    const supabase = supabaseClient()
 
-    if (!user) {
-      console.error('User not authenticated')
-      setIsSubmitting(false)
-      return
-    }
-
-    // Verificar sesión del usuario
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-    console.log('Current session:', session)
-    console.log('User ID:', user.id)
-
-    const accountData = {
-      id: crypto.randomUUID(),
-      userId: user.id,
-      name: formData.get('accountName') as string,
-      type: formData.get('accountType') as string,
-      initialBalance: parseFloat(formData.get('initialBalance') as string),
-      description: formData.get('description') as string,
-      currentBalance: parseFloat(formData.get('initialBalance') as string),
-    }
-
-    console.log('Account Data to insert:', accountData)
-
-    const { data, error } = await supabase
-      .from('Account')
-      .insert([accountData])
-      .select()
-
-    if (error) {
+    try {
+      const account = await createAccount(formData)
+      toast.success(`Account "${account.name}" created successfully!`, {
+        description: `Balance: $${account.currentBalance.toFixed(2)}`,
+      })
+      await loadAccounts()
+      e.currentTarget?.reset()
+      setIsDialogOpen(false)
+    } catch (error) {
       console.error('Insert error:', error)
       toast.error('Failed to create account. Please try again.')
-    } else {
-      console.log('Account created successfully:', data)
-      toast.success(`Account "${accountData.name}" created successfully!`, {
-        description: `Balance: $${accountData.currentBalance.toFixed(2)}`,
-      })
-      // Recargar accounts después de crear
-      if (user) {
-        await loadAccounts(user)
-      }
-      // Reset form
-      e.currentTarget?.reset()
-      // Cerrar el diálogo
-      setIsDialogOpen(false)
     }
 
     setIsSubmitting(false)

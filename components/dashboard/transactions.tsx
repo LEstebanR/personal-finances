@@ -1,7 +1,12 @@
 'use client'
 
-import { supabaseClient } from '@/utils/supabase'
-import { User } from '@supabase/supabase-js'
+import { getAccounts } from '@/app/dashboard/accounts/actions'
+import {
+  createTransaction,
+  createTransfer,
+  getTransactions,
+  getTransfers,
+} from '@/app/dashboard/transactions/actions'
 import { Loader, PlusIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -37,37 +42,30 @@ import { Textarea } from '../ui/textarea'
 
 interface Account {
   id: string
-  userId: string
   name: string
   type: string
-  initialBalance: number | string
-  currentBalance: number | string
-  description: string | null
-  createdAt: string
   isArchived: boolean
 }
 
 interface Transaction {
   id: string
   accountId: string
-  userId: string
   amount: number
   type: string
   description: string
-  date: string
+  date: Date
   category: string | null
-  createdAt: string
+  createdAt: Date
 }
 
 interface Transfer {
   id: string
-  userId: string
   fromAccountId: string
   toAccountId: string
   amount: number
-  date: string
+  date: Date
   note: string | null
-  createdAt: string
+  createdAt: Date
 }
 
 type CombinedItem =
@@ -83,7 +81,6 @@ export function Transactions() {
   const [transfers, setTransfers] = useState<Transfer[]>([])
   const [combinedItems, setCombinedItems] = useState<CombinedItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<User | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [availableAccounts, setAvailableAccounts] = useState<Account[]>([])
@@ -92,60 +89,39 @@ export function Transactions() {
   const [transactionsPerPage] = useState(10)
   const [transactionType, setTransactionType] = useState<string>('')
 
-  // Función para cargar transacciones
-  const loadTransactions = async (currentUser: User) => {
-    const supabase = supabaseClient()
-    console.log('Loading transactions for user:', currentUser.id)
-    const { data: transactions, error } = await supabase
-      .from('Transaction')
-      .select('*')
-      .eq('userId', currentUser.id)
-      .order('createdAt', { ascending: false })
-
-    if (error) {
-      console.error('Error loading transactions:', error)
-      console.error('Full error:', JSON.stringify(error, null, 2))
-    } else {
-      console.log(
-        'Transactions loaded:',
-        transactions?.length || 0,
-        transactions
-      )
-      setTransactions(transactions || [])
+  const loadTransactionsAndTransfers = async () => {
+    try {
+      const [transactions, transfers] = await Promise.all([
+        getTransactions(),
+        getTransfers(),
+      ])
+      setTransactions(transactions)
+      setTransfers(transfers)
+    } catch (error) {
+      console.error('Error loading transactions/transfers:', error)
     }
   }
 
-  // Función para cargar transferencias
-  const loadTransfers = async (currentUser: User) => {
-    const supabase = supabaseClient()
-    console.log('Loading transfers for user:', currentUser.id)
-    const { data: transfers, error } = await supabase
-      .from('Transfer')
-      .select('*')
-      .eq('userId', currentUser.id)
-      .order('createdAt', { ascending: false })
-
-    if (error) {
-      console.error('Error loading transfers:', error)
-      console.error('Full error:', JSON.stringify(error, null, 2))
-    } else {
-      console.log('Transfers loaded:', transfers?.length || 0, transfers)
-      setTransfers(transfers || [])
+  const loadAvailableAccounts = async () => {
+    setLoadingAccounts(true)
+    try {
+      const accounts = await getAccounts()
+      setAvailableAccounts(accounts.filter((account) => !account.isArchived))
+    } catch (error) {
+      console.error('Error loading available accounts:', error)
     }
+    setLoadingAccounts(false)
   }
 
-  // Función para combinar transacciones y transferencias
-  const combineTransactionsAndTransfers = async () => {
-    console.log(
-      'Combining items - Transactions:',
-      transactions.length,
-      'Transfers:',
-      transfers.length,
-      'Accounts:',
-      availableAccounts.length
-    )
+  useEffect(() => {
+    Promise.all([
+      loadTransactionsAndTransfers(),
+      loadAvailableAccounts(),
+    ]).finally(() => setLoading(false))
+  }, [])
 
-    // Crear un mapa de nombres de cuentas
+  // Combinar transacciones y transferencias cuando cambien
+  useEffect(() => {
     const accountMap = new Map<string, string>()
     for (const account of availableAccounts) {
       accountMap.set(account.id, account.name)
@@ -164,82 +140,12 @@ export function Transactions() {
       toAccountName: accountMap.get(t.toAccountId),
     }))
 
-    // Combinar y ordenar por fecha de creación
-    const combined = [...transactionItems, ...transferItems].sort((a, b) => {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    })
-
-    console.log('Combined items:', combined.length)
-    setCombinedItems(combined)
-  }
-
-  // Función para cargar cuentas disponibles para el select
-  const loadAvailableAccounts = async () => {
-    const supabase = supabaseClient()
-
-    // Obtener el usuario actual si no está disponible
-    const currentUser = user || (await supabase.auth.getUser()).data.user
-    if (!currentUser) return
-
-    setLoadingAccounts(true)
-    const { data: accounts, error } = await supabase
-      .from('Account')
-      .select('*')
-      .eq('userId', currentUser.id)
-      .eq('isArchived', false)
-      .order('name', { ascending: true })
-
-    if (error) {
-      console.error('Error loading available accounts:', error)
-    } else {
-      console.log('Available accounts loaded:', accounts?.length || 0)
-      setAvailableAccounts(accounts || [])
-    }
-    setLoadingAccounts(false)
-  }
-
-  // Obtener usuario y transacciones al montar el componente
-  useEffect(() => {
-    const loadUserAndTransactions = async () => {
-      const supabase = supabaseClient()
-
-      // Obtener usuario
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
-
-      if (user) {
-        await loadTransactions(user)
-        await loadTransfers(user)
-        // Cargar cuentas disponibles para mapear nombres
-        await loadAvailableAccounts()
-      }
-
-      setLoading(false)
-    }
-
-    loadUserAndTransactions()
-  }, [])
-
-  // Combinar transacciones y transferencias cuando cambien
-  useEffect(() => {
-    // Combinar incluso si availableAccounts está vacío
-    // Los nombres se mostrarán cuando las cuentas se carguen
-    if (transactions.length > 0 || transfers.length > 0) {
-      combineTransactionsAndTransfers()
-    }
-    console.log(
-      'Rendering - combinedItems:',
-      combinedItems.length,
-      'loading:',
-      loading,
-      'transactions:',
-      transactions.length,
-      'transfers:',
-      transfers.length
+    const combined = [...transactionItems, ...transferItems].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    setCombinedItems(combined)
   }, [transactions, transfers, availableAccounts])
 
   // Filtrar items combinados por tipo
@@ -266,257 +172,50 @@ export function Transactions() {
     return Math.ceil(items.length / transactionsPerPage)
   }
 
-  // Función para actualizar el balance de una cuenta
-  const updateAccountBalance = async (
-    accountId: string,
-    amount: number,
-    type: string
-  ) => {
-    const supabase = supabaseClient()
-
-    console.log(
-      `Updating balance for account: ${accountId}, amount: ${amount}, type: ${type}`
-    )
-
-    // Obtener la cuenta con su balance actual
-    const { data: account, error: fetchError } = await supabase
-      .from('Account')
-      .select('id, name, currentBalance')
-      .eq('id', accountId)
-      .single()
-
-    if (fetchError) {
-      console.error('Error fetching account:', fetchError)
-      console.error('Full error object:', JSON.stringify(fetchError, null, 2))
-      console.error('Account ID being searched:', accountId)
-      console.error('Type of accountId:', typeof accountId)
-      return
-    }
-
-    if (!account) {
-      console.error('Account not found with ID:', accountId)
-      return
-    }
-
-    console.log('Account found:', account)
-
-    // Obtener el balance actual de la cuenta
-    const currentBalance = account.currentBalance ?? 0
-    const newBalance =
-      type === 'income' ? currentBalance + amount : currentBalance - amount
-
-    console.log(
-      `Balance calculation: ${currentBalance} ${type === 'income' ? '+' : '-'} ${amount} = ${newBalance}`
-    )
-
-    // Actualizar el balance actual en la base de datos
-    const { error: updateError } = await supabase
-      .from('Account')
-      .update({ currentBalance: newBalance })
-      .eq('id', accountId)
-
-    if (updateError) {
-      console.error('Error updating account balance:', updateError)
-    } else {
-      console.log(
-        `Account balance updated successfully: ${currentBalance} -> ${newBalance}`
-      )
-    }
-  }
-
-  // Función para actualizar balances en una transferencia
-  const updateBalancesForTransfer = async (
-    fromAccountId: string,
-    toAccountId: string,
-    amount: number
-  ) => {
-    const supabase = supabaseClient()
-
-    // Obtener ambas cuentas
-    const { data: fromAccount, error: fromError } = await supabase
-      .from('Account')
-      .select('id, name, currentBalance')
-      .eq('id', fromAccountId)
-      .single()
-
-    const { data: toAccount, error: toError } = await supabase
-      .from('Account')
-      .select('id, name, currentBalance')
-      .eq('id', toAccountId)
-      .single()
-
-    if (fromError || toError || !fromAccount || !toAccount) {
-      console.error('Error fetching accounts:', fromError || toError)
-      return false
-    }
-
-    // Calcular nuevos balances
-    const fromNewBalance = (fromAccount.currentBalance ?? 0) - amount
-    const toNewBalance = (toAccount.currentBalance ?? 0) + amount
-
-    console.log(
-      `Transfer: ${fromAccount.name} (${fromAccount.currentBalance}) - ${amount} = ${fromNewBalance}`
-    )
-    console.log(
-      `Transfer: ${toAccount.name} (${toAccount.currentBalance}) + ${amount} = ${toNewBalance}`
-    )
-
-    // Actualizar ambas cuentas
-    const { error: fromUpdateError } = await supabase
-      .from('Account')
-      .update({ currentBalance: fromNewBalance })
-      .eq('id', fromAccountId)
-
-    const { error: toUpdateError } = await supabase
-      .from('Account')
-      .update({ currentBalance: toNewBalance })
-      .eq('id', toAccountId)
-
-    if (fromUpdateError || toUpdateError) {
-      console.error(
-        'Error updating balances:',
-        fromUpdateError || toUpdateError
-      )
-      return false
-    }
-
-    console.log('Balances updated successfully')
-    return true
-  }
-
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsSubmitting(true)
     const formData = new FormData(e.currentTarget)
-    const supabase = supabaseClient()
-
-    if (!user) {
-      console.error('User not authenticated')
-      setIsSubmitting(false)
-      return
-    }
-
     const type = formData.get('type') as string
 
-    // Si es una transferencia, usar la tabla Transfer
-    if (type === 'transfer') {
-      const fromAccountId = formData.get('fromAccountId') as string
-      const toAccountId = formData.get('toAccountId') as string
-      const amount = parseFloat(formData.get('amount') as string)
-      const note = formData.get('description') as string
-      const date = formData.get('date') as string
+    try {
+      if (type === 'transfer') {
+        const fromAccountId = formData.get('fromAccountId') as string
+        const toAccountId = formData.get('toAccountId') as string
+        const amount = parseFloat(formData.get('amount') as string)
 
-      const transferData = {
-        id: crypto.randomUUID(),
-        userId: user.id,
-        fromAccountId: fromAccountId,
-        toAccountId: toAccountId,
-        amount: amount,
-        date: date,
-        note: note,
-      }
+        await createTransfer(formData)
 
-      console.log('Transfer Data to insert:', transferData)
+        const fromAccount = availableAccounts.find(
+          (a) => a.id === fromAccountId
+        )
+        const toAccount = availableAccounts.find((a) => a.id === toAccountId)
 
-      const { data, error } = await supabase
-        .from('Transfer')
-        .insert([transferData])
-        .select()
-
-      if (error) {
-        console.error('Transfer error:', error)
-        toast.error('Failed to create transfer. Please try again.')
+        toast.success('Transfer completed successfully!', {
+          description: `$${amount.toFixed(2)} from ${fromAccount?.name || 'Account'} to ${toAccount?.name || 'Account'}`,
+        })
       } else {
-        console.log('Transfer created successfully:', data)
+        const accountId = formData.get('accountId') as string
+        const amount = parseFloat(formData.get('amount') as string)
 
-        // Actualizar balances de ambas cuentas
-        const success = await updateBalancesForTransfer(
-          fromAccountId,
-          toAccountId,
-          amount
-        )
+        await createTransaction(formData)
 
-        if (success && user) {
-          await loadTransactions(user)
-          await loadTransfers(user)
-
-          // Encontrar nombres de cuentas para el toast
-          const fromAccount = availableAccounts.find(
-            (a) => a.id === fromAccountId
-          )
-          const toAccount = availableAccounts.find((a) => a.id === toAccountId)
-
-          toast.success('Transfer completed successfully!', {
-            description: `$${amount.toFixed(2)} from ${fromAccount?.name || 'Account'} to ${toAccount?.name || 'Account'}`,
-          })
-        } else {
-          toast.error('Transfer created but failed to update balances.')
-        }
-
-        // Reset form
-        e.currentTarget?.reset()
-        setTransactionType('')
-        // Cerrar el diálogo
-        setIsDialogOpen(false)
-        // Reset pagination
-        setCurrentPage(1)
-      }
-    } else {
-      // Transacción normal (income o expense)
-      const transactionData = {
-        id: crypto.randomUUID(),
-        userId: user.id,
-        accountId: formData.get('accountId') as string,
-        amount: parseFloat(formData.get('amount') as string),
-        type: type,
-        description: formData.get('description') as string,
-        date: formData.get('date') as string,
-        category: (formData.get('category') as string) || null,
-      }
-
-      console.log('Transaction Data to insert:', transactionData)
-
-      const { data, error } = await supabase
-        .from('Transaction')
-        .insert([transactionData])
-        .select()
-
-      if (error) {
-        console.error('Insert error:', error)
-        toast.error('Failed to create transaction. Please try again.')
-      } else {
-        console.log('Transaction created successfully:', data)
-
-        // Actualizar el balance de la cuenta
-        await updateAccountBalance(
-          transactionData.accountId,
-          transactionData.amount,
-          transactionData.type
-        )
-
-        const account = availableAccounts.find(
-          (a) => a.id === transactionData.accountId
-        )
-        const typeLabel =
-          transactionData.type === 'income' ? 'Income' : 'Expense'
+        const account = availableAccounts.find((a) => a.id === accountId)
+        const typeLabel = type === 'income' ? 'Income' : 'Expense'
 
         toast.success(`${typeLabel} transaction created!`, {
-          description: `${transactionData.type === 'income' ? '+' : '-'}$${transactionData.amount.toFixed(2)} • ${account?.name || 'Account'}`,
+          description: `${type === 'income' ? '+' : '-'}$${amount.toFixed(2)} • ${account?.name || 'Account'}`,
         })
-
-        // Recargar transacciones después de crear
-        if (user) {
-          await loadTransactions(user)
-          await loadTransfers(user)
-        }
-        // Reset form
-        e.currentTarget?.reset()
-        setTransactionType('')
-        // Cerrar el diálogo
-        setIsDialogOpen(false)
-        // Reset pagination
-        setCurrentPage(1)
       }
+
+      await loadTransactionsAndTransfers()
+      e.currentTarget?.reset()
+      setTransactionType('')
+      setIsDialogOpen(false)
+      setCurrentPage(1)
+    } catch (error) {
+      console.error('Error creating transaction/transfer:', error)
+      toast.error('Failed to save. Please try again.')
     }
 
     setIsSubmitting(false)

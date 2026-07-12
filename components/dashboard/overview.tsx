@@ -1,7 +1,6 @@
 'use client'
 
-import { supabaseClient } from '@/utils/supabase'
-import { User } from '@supabase/supabase-js'
+import { getOverviewData } from '@/app/dashboard/overview/actions'
 import {
   DollarSign,
   PiggyBank,
@@ -22,37 +21,30 @@ import { Skeleton } from '../ui/skeleton'
 
 interface Account {
   id: string
-  userId: string
   name: string
   type: string
-  initialBalance: number
   currentBalance: number
-  description: string | null
-  createdAt: string
-  isArchived: boolean
 }
 
 interface Transaction {
   id: string
   accountId: string
-  userId: string
   amount: number
   type: string
   description: string
-  date: string
+  date: Date
   category: string | null
-  createdAt: string
+  createdAt: Date
 }
 
 interface Transfer {
   id: string
-  userId: string
   fromAccountId: string
   toAccountId: string
   amount: number
-  date: string
+  date: Date
   note: string | null
-  createdAt: string
+  createdAt: Date
 }
 
 type CombinedItem =
@@ -65,79 +57,41 @@ type CombinedItem =
 
 export function Overview() {
   const [accounts, setAccounts] = useState<Account[]>([])
-  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>(
-    []
-  )
-  const [allTransactions, setAllTransactions] = useState<Transaction[]>([])
+  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [transfers, setTransfers] = useState<Transfer[]>([])
   const [recentItems, setRecentItems] = useState<CombinedItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<User | null>(null)
-  console.log('accounts', accounts)
 
-  // Función para cargar cuentas
-  const loadAccounts = async (currentUser: User) => {
-    const supabase = supabaseClient()
-    const { data: accounts, error } = await supabase
-      .from('Account')
-      .select('*')
-      .eq('userId', currentUser.id)
-      .eq('isArchived', false)
-      .order('createdAt', { ascending: false })
-
-    if (error) {
-      console.error('Error loading accounts:', error, user)
-    } else {
-      setAccounts(accounts || [])
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const data = await getOverviewData()
+        setAccounts(data.accounts)
+        setTransactions(data.transactions)
+        setTransfers(data.transfers)
+      } catch (error) {
+        console.error('Error loading overview data:', error)
+      }
+      setLoading(false)
     }
-  }
 
-  // Función para cargar últimas 5 transacciones
-  const loadRecentTransactions = async (currentUser: User) => {
-    const supabase = supabaseClient()
-    const { data: transactions, error } = await supabase
-      .from('Transaction')
-      .select('*')
-      .eq('userId', currentUser.id)
-      .order('createdAt', { ascending: false })
-      .limit(5)
+    loadData()
+  }, [])
 
-    if (error) {
-      console.error('Error loading recent transactions:', error)
-    } else {
-      setRecentTransactions(transactions || [])
-      setAllTransactions(transactions || [])
-    }
-  }
-
-  // Función para cargar transferencias
-  const loadTransfers = async (currentUser: User) => {
-    const supabase = supabaseClient()
-    const { data: transfers, error } = await supabase
-      .from('Transfer')
-      .select('*')
-      .eq('userId', currentUser.id)
-      .order('createdAt', { ascending: false })
-
-    if (error) {
-      console.error('Error loading transfers:', error)
-    } else {
-      setTransfers(transfers || [])
-    }
-  }
-
-  // Función para combinar transacciones y transferencias recientes
-  const combineRecentItems = () => {
+  // Combinar items cuando cambien transacciones, transferencias o cuentas
+  useEffect(() => {
     const accountMap = new Map<string, string>()
     for (const account of accounts) {
       accountMap.set(account.id, account.name)
     }
 
-    const transactionItems: CombinedItem[] = recentTransactions.map((t) => ({
-      ...t,
-      itemType: 'transaction' as const,
-      accountName: accountMap.get(t.accountId),
-    }))
+    const transactionItems: CombinedItem[] = transactions
+      .slice(0, 5)
+      .map((t) => ({
+        ...t,
+        itemType: 'transaction' as const,
+        accountName: accountMap.get(t.accountId),
+      }))
 
     const transferItems: CombinedItem[] = transfers.slice(0, 5).map((t) => ({
       ...t,
@@ -154,58 +108,7 @@ export function Overview() {
       .slice(0, 5)
 
     setRecentItems(combined)
-  }
-
-  // Función para cargar todas las transacciones (para estadísticas)
-  const loadAllTransactions = async (currentUser: User) => {
-    const supabase = supabaseClient()
-    const { data: transactions, error } = await supabase
-      .from('Transaction')
-      .select('*')
-      .eq('userId', currentUser.id)
-      .order('createdAt', { ascending: false })
-
-    if (error) {
-      console.error('Error loading all transactions:', error)
-    } else {
-      setAllTransactions(transactions || [])
-    }
-  }
-
-  // Cargar datos al montar el componente
-  useEffect(() => {
-    const loadData = async () => {
-      const supabase = supabaseClient()
-
-      // Obtener usuario
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
-
-      if (user) {
-        await Promise.all([
-          loadAccounts(user),
-          loadRecentTransactions(user),
-          loadAllTransactions(user),
-          loadTransfers(user),
-        ])
-      }
-
-      setLoading(false)
-    }
-
-    loadData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Combinar items cuando cambien transacciones, transferencias o cuentas
-  useEffect(() => {
-    if (accounts.length > 0) {
-      combineRecentItems()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recentTransactions, transfers, accounts])
+  }, [transactions, transfers, accounts])
 
   // Calcular balance total
   const getTotalBalance = () => {
@@ -220,7 +123,7 @@ export function Overview() {
     const currentMonth = new Date().getMonth()
     const currentYear = new Date().getFullYear()
 
-    const monthlyTransactions = allTransactions.filter((transaction) => {
+    const monthlyTransactions = transactions.filter((transaction) => {
       const transactionDate = new Date(transaction.date)
       return (
         transactionDate.getMonth() === currentMonth &&
