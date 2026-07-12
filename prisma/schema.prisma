@@ -64,6 +64,9 @@ model User {
   email         String
   emailVerified Boolean       @default(false)
   image         String?
+  currency      String        @default("usd")
+  timezone      String        @default("America/Bogota")
+  budgetPeriod  String        @default("monthly")
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   sessions      Session[]

@@ -7,11 +7,14 @@ import {
   getTransactions,
   getTransfers,
 } from '@/app/dashboard/transactions/actions'
+import { useCurrency } from '@/components/currency-provider'
+import { formatMoney, parseCurrencyInput } from '@/lib/currency'
 import { Loader, PlusIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '../ui/button'
+import { CurrencyInput } from '../ui/currency-input'
 import {
   Dialog,
   DialogContent,
@@ -77,6 +80,7 @@ type CombinedItem =
     })
 
 export function Transactions() {
+  const currency = useCurrency()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [transfers, setTransfers] = useState<Transfer[]>([])
   const [combinedItems, setCombinedItems] = useState<CombinedItem[]>([])
@@ -182,7 +186,7 @@ export function Transactions() {
       if (type === 'transfer') {
         const fromAccountId = formData.get('fromAccountId') as string
         const toAccountId = formData.get('toAccountId') as string
-        const amount = parseFloat(formData.get('amount') as string)
+        const amount = parseCurrencyInput(formData.get('amount'))
 
         await createTransfer(formData)
 
@@ -192,11 +196,11 @@ export function Transactions() {
         const toAccount = availableAccounts.find((a) => a.id === toAccountId)
 
         toast.success('Transfer completed successfully!', {
-          description: `$${amount.toFixed(2)} from ${fromAccount?.name || 'Account'} to ${toAccount?.name || 'Account'}`,
+          description: `$${formatMoney(amount, currency)} from ${fromAccount?.name || 'Account'} to ${toAccount?.name || 'Account'}`,
         })
       } else {
         const accountId = formData.get('accountId') as string
-        const amount = parseFloat(formData.get('amount') as string)
+        const amount = parseCurrencyInput(formData.get('amount'))
 
         await createTransaction(formData)
 
@@ -204,7 +208,7 @@ export function Transactions() {
         const typeLabel = type === 'income' ? 'Income' : 'Expense'
 
         toast.success(`${typeLabel} transaction created!`, {
-          description: `${type === 'income' ? '+' : '-'}$${amount.toFixed(2)} • ${account?.name || 'Account'}`,
+          description: `${type === 'income' ? '+' : '-'}$${formatMoney(amount, currency)} • ${account?.name || 'Account'}`,
         })
       }
 
@@ -340,13 +344,7 @@ export function Transactions() {
               )}
               <div className="flex flex-col gap-1">
                 <Label>Amount</Label>
-                <Input
-                  type="number"
-                  name="amount"
-                  placeholder="Amount"
-                  step="0.01"
-                  required
-                />
+                <CurrencyInput name="amount" required />
               </div>
               <div className="flex flex-col gap-1">
                 <Label>Date</Label>
@@ -488,11 +486,7 @@ export function Transactions() {
                                 : item.itemType === 'transaction'
                                   ? '-'
                                   : ''}
-                              $
-                              {Number(item.amount).toLocaleString('en-US', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
+                              ${formatMoney(Number(item.amount), currency)}
                             </TableCell>
                             <TableCell>
                               {new Date(item.date).toLocaleDateString()}

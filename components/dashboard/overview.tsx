@@ -1,6 +1,8 @@
 'use client'
 
 import { getOverviewData } from '@/app/dashboard/overview/actions'
+import { useCurrency } from '@/components/currency-provider'
+import { formatMoney } from '@/lib/currency'
 import {
   DollarSign,
   PiggyBank,
@@ -56,6 +58,7 @@ type CombinedItem =
     })
 
 export function Overview() {
+  const currency = useCurrency()
   const [accounts, setAccounts] = useState<Account[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [transfers, setTransfers] = useState<Transfer[]>([])
@@ -177,11 +180,7 @@ export function Overview() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                $
-                {getTotalBalance().toLocaleString('en-US', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                ${formatMoney(getTotalBalance(), currency)}
               </div>
               <p className="text-muted-foreground text-xs">
                 Across {accounts.length} account
@@ -199,11 +198,7 @@ export function Overview() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600">
-                +$
-                {monthlyStats.income.toLocaleString('en-US', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                +${formatMoney(monthlyStats.income, currency)}
               </div>
               <p className="text-muted-foreground text-xs">This month</p>
             </CardContent>
@@ -218,11 +213,7 @@ export function Overview() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                -$
-                {monthlyStats.expenses.toLocaleString('en-US', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                -${formatMoney(monthlyStats.expenses, currency)}
               </div>
               <p className="text-muted-foreground text-xs">This month</p>
             </CardContent>
@@ -242,12 +233,9 @@ export function Overview() {
                 }`}
               >
                 {monthlyStats.income - monthlyStats.expenses >= 0 ? '+' : ''}$
-                {(monthlyStats.income - monthlyStats.expenses).toLocaleString(
-                  'en-US',
-                  {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }
+                {formatMoney(
+                  monthlyStats.income - monthlyStats.expenses,
+                  currency
                 )}
               </div>
               <p className="text-muted-foreground text-xs">This month</p>
@@ -331,7 +319,7 @@ export function Overview() {
                           : item.itemType === 'transaction'
                             ? '-'
                             : ''}
-                        ${Number(item.amount).toFixed(2)}
+                        ${formatMoney(Number(item.amount), currency)}
                       </p>
                       <p className="text-muted-foreground text-sm">
                         {new Date(item.date).toLocaleDateString()}
@@ -383,12 +371,9 @@ export function Overview() {
                         </p>
                         <p className="text-xl font-bold">
                           $
-                          {Number(account.currentBalance).toLocaleString(
-                            'en-US',
-                            {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            }
+                          {formatMoney(
+                            Number(account.currentBalance),
+                            currency
                           )}
                         </p>
                       </div>

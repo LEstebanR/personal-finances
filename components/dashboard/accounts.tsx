@@ -1,6 +1,7 @@
 'use client'
 
 import { createAccount, getAccounts } from '@/app/dashboard/accounts/actions'
+import { useCurrency } from '@/components/currency-provider'
 import {
   Dialog,
   DialogContent,
@@ -9,11 +10,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { formatMoney } from '@/lib/currency'
 import { Loader, PiggyBank, PlusIcon, Wallet } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '../ui/button'
+import { CurrencyInput } from '../ui/currency-input'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import {
@@ -39,6 +42,7 @@ interface Account {
 }
 
 export function Accounts() {
+  const currency = useCurrency()
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -71,7 +75,7 @@ export function Accounts() {
     try {
       const account = await createAccount(formData)
       toast.success(`Account "${account.name}" created successfully!`, {
-        description: `Balance: $${account.currentBalance.toFixed(2)}`,
+        description: `Balance: $${formatMoney(account.currentBalance, currency)}`,
       })
       await loadAccounts()
       e.currentTarget?.reset()
@@ -109,11 +113,7 @@ export function Accounts() {
         <div className="mb-4">
           <p className="mb-1 text-sm text-gray-500">Current Balance</p>
           <p className="text-3xl font-bold text-gray-900">
-            $
-            {Number(account.currentBalance).toLocaleString('en-US', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
+            ${formatMoney(Number(account.currentBalance), currency)}
           </p>
         </div>
       </div>
@@ -174,13 +174,7 @@ export function Accounts() {
               </div>
               <div className="flex flex-col gap-1">
                 <Label>Initial Balance</Label>
-                <Input
-                  type="number"
-                  name="initialBalance"
-                  placeholder="Initial Balance"
-                  step="0.01"
-                  required
-                />
+                <CurrencyInput name="initialBalance" required />
               </div>
               <div className="flex flex-col gap-1">
                 <Label>Description</Label>
@@ -249,13 +243,7 @@ export function Accounts() {
               </div>
               <div className="flex flex-col gap-1">
                 <Label>Initial Balance</Label>
-                <Input
-                  type="number"
-                  name="initialBalance"
-                  placeholder="Initial Balance"
-                  step="0.01"
-                  required
-                />
+                <CurrencyInput name="initialBalance" required />
               </div>
               <div className="flex flex-col gap-1">
                 <Label>Description</Label>

@@ -1,5 +1,6 @@
 'use server'
 
+import { parseCurrencyInput } from '@/lib/currency'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
 
@@ -23,7 +24,7 @@ export async function createAccount(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const initialBalance = parseFloat(formData.get('initialBalance') as string)
+  const initialBalance = parseCurrencyInput(formData.get('initialBalance'))
 
   const account = await prisma.account.create({
     data: {

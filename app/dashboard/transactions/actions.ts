@@ -1,5 +1,6 @@
 'use server'
 
+import { parseCurrencyInput } from '@/lib/currency'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
 
@@ -38,7 +39,7 @@ export async function createTransaction(formData: FormData) {
   if (!session) throw new Error('Not authenticated')
 
   const accountId = formData.get('accountId') as string
-  const amount = parseFloat(formData.get('amount') as string)
+  const amount = parseCurrencyInput(formData.get('amount'))
   const type = formData.get('type') as string
   const balanceChange = type === 'income' ? amount : -amount
 
@@ -77,7 +78,7 @@ export async function createTransfer(formData: FormData) {
 
   const fromAccountId = formData.get('fromAccountId') as string
   const toAccountId = formData.get('toAccountId') as string
-  const amount = parseFloat(formData.get('amount') as string)
+  const amount = parseCurrencyInput(formData.get('amount'))
 
   const transfer = await prisma.$transaction(async (tx) => {
     const [fromAccount, toAccount] = await Promise.all([
