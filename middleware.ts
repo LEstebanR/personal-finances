@@ -8,7 +8,8 @@ export async function middleware(request: NextRequest) {
     !sessionCookie &&
     request.nextUrl.pathname !== '/' &&
     request.nextUrl.pathname !== '/login' &&
-    request.nextUrl.pathname !== '/signup'
+    request.nextUrl.pathname !== '/signup' &&
+    !request.nextUrl.pathname.startsWith('/api/auth')
   ) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
