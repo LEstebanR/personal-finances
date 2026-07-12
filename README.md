@@ -2,15 +2,11 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+This project uses [Bun](https://bun.sh) as its package manager and runtime — install dependencies with `bun install`, not `npm`/`yarn`/`pnpm`.
+
 First, run the development server:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
 bun dev
 ```
 
