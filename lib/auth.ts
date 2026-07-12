@@ -3,15 +3,17 @@ import { prismaAdapter } from 'better-auth/adapters/prisma'
 
 import { prisma } from './prisma'
 
+const productionURL = 'https://personal-finances-lestebanrs-projects.vercel.app'
+
 const baseURL =
   process.env.BETTER_AUTH_URL ??
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  (process.env.NODE_ENV === 'production'
+    ? productionURL
     : 'http://localhost:3000')
 
 const trustedOrigins = [
   baseURL,
-  'https://personal-finances-lestebanrs-projects.vercel.app',
+  productionURL,
   'https://personal-finances-git-main-lestebanrs-projects.vercel.app',
   'https://personal-finances-chi.vercel.app',
 ]
