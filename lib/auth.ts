@@ -9,9 +9,16 @@ const baseURL =
     ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
     : 'http://localhost:3000')
 
+const trustedOrigins = [
+  baseURL,
+  'https://personal-finances-lestebanrs-projects.vercel.app',
+  'https://personal-finances-git-main-lestebanrs-projects.vercel.app',
+  'https://personal-finances-chi.vercel.app',
+]
+
 export const auth = betterAuth({
   baseURL,
-  trustedOrigins: [baseURL],
+  trustedOrigins,
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
   }),
