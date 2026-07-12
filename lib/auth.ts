@@ -3,7 +3,15 @@ import { prismaAdapter } from 'better-auth/adapters/prisma'
 
 import { prisma } from './prisma'
 
+const baseURL =
+  process.env.BETTER_AUTH_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : 'http://localhost:3000')
+
 export const auth = betterAuth({
+  baseURL,
+  trustedOrigins: [baseURL],
   database: prismaAdapter(prisma, {
     provider: 'postgresql',
   }),
