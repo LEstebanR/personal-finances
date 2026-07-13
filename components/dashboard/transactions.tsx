@@ -8,7 +8,7 @@ import {
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
-import { Loader, PlusIcon } from 'lucide-react'
+import { CreditCard, Loader, PlusIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { Button } from '../ui/button'
@@ -31,12 +31,17 @@ import { TransactionRowActions } from './transaction-row-actions'
 
 interface Transaction {
   id: string
-  accountId: string
+  accountId: string | null
+  debtId: string | null
   amount: number
   type: string
   description: string
   date: Date
-  category: string | null
+  categoryId: string
+  subcategoryId: string | null
+  categoryName: string
+  subcategoryName: string | null
+  sourceName: string | null
   createdAt: Date
 }
 
@@ -56,7 +61,7 @@ interface AccountName {
 }
 
 type CombinedItem =
-  | (Transaction & { itemType: 'transaction'; accountName?: string })
+  | (Transaction & { itemType: 'transaction' })
   | (Transfer & {
       itemType: 'transfer'
       fromAccountName?: string
@@ -79,11 +84,13 @@ function toEditableItem(item: CombinedItem): EditableItem {
     itemType: 'transaction',
     id: item.id,
     accountId: item.accountId,
+    debtId: item.debtId,
     amount: item.amount,
     type: item.type,
     description: item.description,
     date: item.date,
-    category: item.category,
+    categoryId: item.categoryId,
+    subcategoryId: item.subcategoryId,
   }
 }
 
@@ -127,7 +134,6 @@ export function Transactions() {
     const transactionItems: CombinedItem[] = transactions.map((tItem) => ({
       ...tItem,
       itemType: 'transaction' as const,
-      accountName: accountMap.get(tItem.accountId),
     }))
 
     const transferItems: CombinedItem[] = transfers.map((tItem) => ({
@@ -172,6 +178,26 @@ export function Transactions() {
     setIsEditOpen(true)
   }
 
+  const EmptyState = () => (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <CreditCard className="mb-4 h-16 w-16 text-gray-300" />
+      <h3 className="mb-2 text-lg font-semibold text-gray-900">
+        {t('transactions.noItemsFound')}
+      </h3>
+      <p className="mb-6 max-w-sm text-gray-500">
+        {t('transactions.noItemsFoundDesc')}
+      </p>
+      <AddTransactionDialog
+        trigger={
+          <Button>
+            <PlusIcon className="mr-2 h-4 w-4" />
+            {t('transactions.addTransaction')}
+          </Button>
+        }
+      />
+    </div>
+  )
+
   return (
     <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
       <div className="flex w-full justify-between">
@@ -192,9 +218,7 @@ export function Transactions() {
             <Loader className="h-8 w-8 animate-spin" />
           </div>
         ) : combinedItems.length === 0 ? (
-          <p className="text-center text-gray-500">
-            {t('transactions.noItemsFound')}
-          </p>
+          <EmptyState />
         ) : (
           <Tabs defaultValue="all" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
@@ -225,9 +249,7 @@ export function Transactions() {
               return (
                 <TabsContent key={tabType} value={tabType} className="mt-6">
                   {filteredItems.length === 0 ? (
-                    <p className="text-center text-gray-500">
-                      {t('transactions.noItemsFound')}
-                    </p>
+                    <EmptyState />
                   ) : (
                     <>
                       <div className="rounded-md border">
@@ -267,7 +289,7 @@ export function Transactions() {
                                 </TableCell>
                                 <TableCell>
                                   {item.itemType === 'transaction' ? (
-                                    item.accountName || '-'
+                                    item.sourceName || '-'
                                   ) : (
                                     <span className="text-xs">
                                       {item.fromAccountName} →{' '}
@@ -296,7 +318,7 @@ export function Transactions() {
                                 </TableCell>
                                 <TableCell className="text-gray-500">
                                   {item.itemType === 'transaction'
-                                    ? item.category || '-'
+                                    ? item.categoryName || '-'
                                     : '-'}
                                 </TableCell>
                                 <TableCell

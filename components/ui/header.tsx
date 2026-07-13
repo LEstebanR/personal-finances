@@ -51,7 +51,7 @@ function HeaderContent({
 
   return (
     <header
-      className={`bg-background flex h-14 w-full items-center justify-between border-b px-4 ${path === '/' ? 'fixed top-0 right-0 left-0 z-50' : ''}`}
+      className={`bg-background sticky top-0 z-50 flex h-14 w-full items-center justify-between border-b px-4 ${path === '/' ? 'fixed right-0 left-0' : ''}`}
     >
       {path !== '/' ? (
         <>
@@ -65,7 +65,6 @@ function HeaderContent({
             {viewTitle}
           </h2>
           <div className="flex items-center gap-2">
-            <LanguageToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Avatar className="cursor-pointer">

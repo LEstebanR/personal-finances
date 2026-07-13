@@ -39,3 +39,11 @@ export function formatCurrencyInput(value: string, decimals = 2): string {
 export function parseCurrencyInput(value: FormDataEntryValue | null): number {
   return parseFloat(String(value ?? '').replace(/,/g, ''))
 }
+
+export function parseOptionalCurrencyInput(
+  value: FormDataEntryValue | null
+): number | null {
+  if (!String(value ?? '').trim()) return null
+  const parsed = parseCurrencyInput(value)
+  return Number.isNaN(parsed) ? null : parsed
+}

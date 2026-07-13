@@ -7,18 +7,22 @@ export async function getOverviewData() {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const [accounts, transactions, transfers] = await Promise.all([
+  const [accounts, transactions, transfers, debts] = await Promise.all([
     prisma.account.findMany({
       where: { userId: session.user.id, isArchived: false },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.transaction.findMany({
       where: { userId: session.user.id },
+      include: { category: true, account: true, debt: true },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.transfer.findMany({
       where: { userId: session.user.id },
       orderBy: { createdAt: 'desc' },
+    }),
+    prisma.debt.findMany({
+      where: { userId: session.user.id },
     }),
   ])
 
@@ -28,13 +32,21 @@ export async function getOverviewData() {
       initialBalance: Number(account.initialBalance),
       currentBalance: Number(account.currentBalance),
     })),
-    transactions: transactions.map((transaction) => ({
-      ...transaction,
-      amount: Number(transaction.amount),
-    })),
+    transactions: transactions.map(
+      ({ category, account, debt, ...transaction }) => ({
+        ...transaction,
+        amount: Number(transaction.amount),
+        categoryName: category.name,
+        sourceName: account?.name ?? debt?.name ?? null,
+      })
+    ),
     transfers: transfers.map((transfer) => ({
       ...transfer,
       amount: Number(transfer.amount),
     })),
+    totalDebt: debts.reduce(
+      (total, debt) => total + Number(debt.remainingBalance),
+      0
+    ),
   }
 }

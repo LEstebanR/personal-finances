@@ -1,34 +1,15 @@
 'use client'
 
-import { createAccount, getAccounts } from '@/app/dashboard/accounts/actions'
+import { getAccounts } from '@/app/dashboard/accounts/actions'
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
 import { formatMoney } from '@/lib/currency'
 import { Loader, PiggyBank, PlusIcon, Wallet } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { toast } from 'sonner'
 
 import { Button } from '../ui/button'
-import { CurrencyInput } from '../ui/currency-input'
-import { Input } from '../ui/input'
-import { Label } from '../ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
-import { Textarea } from '../ui/textarea'
+import { AddAccountDialog } from './add-account-dialog'
 import { useDashboardRefresh } from './refresh-provider'
 
 interface Account {
@@ -46,11 +27,9 @@ interface Account {
 export function Accounts() {
   const currency = useCurrency()
   const { t } = useLanguage()
-  const { refreshKey, triggerRefresh } = useDashboardRefresh()
+  const { refreshKey } = useDashboardRefresh()
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const loadAccounts = async () => {
     try {
@@ -68,29 +47,6 @@ export function Accounts() {
   const filterAccountsByType = (type: 'all' | 'cash' | 'savings') => {
     if (type === 'all') return accounts
     return accounts.filter((account) => account.type === type)
-  }
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    const formData = new FormData(e.currentTarget)
-
-    try {
-      const account = await createAccount(formData)
-      toast.success(t('accounts.accountCreated', { name: account.name }), {
-        description: t('accounts.accountCreatedDesc', {
-          amount: formatMoney(account.currentBalance, currency),
-        }),
-      })
-      triggerRefresh()
-      e.currentTarget?.reset()
-      setIsDialogOpen(false)
-    } catch (error) {
-      console.error('Insert error:', error)
-      toast.error(t('accounts.accountCreateFailed'))
-    }
-
-    setIsSubmitting(false)
   }
 
   const AccountCard = ({ account }: { account: Account }) => {
@@ -127,53 +83,14 @@ export function Accounts() {
     )
   }
 
-  const AccountForm = ({
-    defaultType,
-  }: {
-    defaultType?: 'cash' | 'savings'
-  }) => (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      <div className="flex flex-col gap-1">
-        <Label>{t('accounts.accountName')}</Label>
-        <Input type="text" name="accountName" required />
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label>{t('accounts.accountType')}</Label>
-        <Select name="accountType" required defaultValue={defaultType}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={t('accounts.selectAccountType')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="cash">{t('accounts.cash')}</SelectItem>
-            <SelectItem value="savings">{t('accounts.savings')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label>{t('accounts.initialBalance')}</Label>
-        <CurrencyInput name="initialBalance" required />
-      </div>
-      <div className="flex flex-col gap-1">
-        <Label>{t('accounts.description')}</Label>
-        <Textarea name="description" className="resize-none" />
-      </div>
-      <Button className="w-full" type="submit" disabled={isSubmitting}>
-        {isSubmitting ? (
-          <>
-            <Loader className="mr-2 h-4 w-4 animate-spin" />
-            {t('accounts.creatingAccount')}
-          </>
-        ) : (
-          t('accounts.addAccount')
-        )}
-      </Button>
-    </form>
-  )
-
-  const EmptyState = ({ type }: { type: 'cash' | 'savings' }) => {
+  const EmptyState = ({ type }: { type: 'all' | 'cash' | 'savings' }) => {
     const Icon = type === 'cash' ? Wallet : PiggyBank
     const typeLabel =
-      type === 'cash' ? t('accounts.cash') : t('accounts.savings')
+      type === 'cash'
+        ? t('accounts.cash')
+        : type === 'savings'
+          ? t('accounts.savings')
+          : t('accounts.all')
 
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -184,23 +101,15 @@ export function Accounts() {
         <p className="mb-6 max-w-sm text-gray-500">
           {t('accounts.noAccountsYetDesc', { type: typeLabel.toLowerCase() })}
         </p>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
+        <AddAccountDialog
+          defaultType={type === 'all' ? undefined : type}
+          trigger={
             <Button>
               <PlusIcon className="mr-2 h-4 w-4" />
               {t('accounts.createTypeAccount', { type: typeLabel })}
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('accounts.addAccount')}</DialogTitle>
-            </DialogHeader>
-            <DialogDescription>
-              {t('accounts.dialogDescription')}
-            </DialogDescription>
-            <AccountForm defaultType={type} />
-          </DialogContent>
-        </Dialog>
+          }
+        />
       </div>
     )
   }
@@ -209,32 +118,21 @@ export function Accounts() {
     <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
       <div className="flex w-full justify-between">
         <h1 className="text-2xl font-bold">{t('accounts.title')}</h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
+        <AddAccountDialog
+          trigger={
             <Button>
               <PlusIcon className="size-4" />
               {t('accounts.addAccount')}
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{t('accounts.addAccount')}</DialogTitle>
-            </DialogHeader>
-            <DialogDescription>
-              {t('accounts.dialogDescription')}
-            </DialogDescription>
-            <AccountForm />
-          </DialogContent>
-        </Dialog>
+          }
+        />
       </div>
 
       <div className="mt-6 w-full">
         {loading ? (
           <Loader className="m-auto h-8 w-8 animate-spin" />
         ) : accounts.length === 0 ? (
-          <p className="text-center text-gray-500">
-            {t('accounts.noAccountsFound')}
-          </p>
+          <EmptyState type="all" />
         ) : (
           <Tabs defaultValue="all" className="w-full">
             <TabsList className="grid w-full grid-cols-3">

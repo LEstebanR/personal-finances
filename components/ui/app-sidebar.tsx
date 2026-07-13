@@ -4,6 +4,7 @@ import { useLanguage } from '@/components/language-provider'
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -13,7 +14,15 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar'
-import { CreditCard, Home, Settings, User, Wallet } from 'lucide-react'
+import {
+  CreditCard,
+  Home,
+  Landmark,
+  PiggyBank,
+  Settings,
+  User,
+  Wallet,
+} from 'lucide-react'
 import Link from 'next/link'
 
 import { Logo } from './logo'
@@ -34,6 +43,8 @@ export function AppSidebar() {
       label: t('nav.transactions'),
       href: '?transactions',
     },
+    { icon: <Landmark />, label: t('nav.debts'), href: '?debts' },
+    { icon: <PiggyBank />, label: t('nav.budget'), href: '?budget' },
   ]
 
   const optionsSettings = [
@@ -65,6 +76,8 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+      </SidebarContent>
+      <SidebarFooter>
         <SidebarGroup>
           <SidebarGroupLabel>{t('nav.userSettings')}</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -83,7 +96,7 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-      </SidebarContent>
+      </SidebarFooter>
     </Sidebar>
   )
 }

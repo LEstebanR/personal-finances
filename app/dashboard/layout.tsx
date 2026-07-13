@@ -1,14 +1,12 @@
 import { CurrencyProvider } from '@/components/currency-provider'
-import { AddTransactionDialog } from '@/components/dashboard/add-transaction-dialog'
+import { QuickAddFab } from '@/components/dashboard/quick-add-fab'
 import { DashboardRefreshProvider } from '@/components/dashboard/refresh-provider'
 import { AppSidebar } from '@/components/ui/app-sidebar'
-import { Button } from '@/components/ui/button'
 import { Footer } from '@/components/ui/footer'
 import { Header } from '@/components/ui/header'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
-import { PlusIcon } from 'lucide-react'
 
 export default async function AuthenticatedLayout({
   children,
@@ -34,16 +32,7 @@ export default async function AuthenticatedLayout({
           <CurrencyProvider currency={currency ?? 'usd'}>
             <DashboardRefreshProvider>
               <div className="flex-1">{children}</div>
-              <AddTransactionDialog
-                trigger={
-                  <Button
-                    size="icon"
-                    className="fixed right-6 bottom-6 z-50 h-14 w-14 rounded-full shadow-lg"
-                  >
-                    <PlusIcon className="size-6" />
-                  </Button>
-                }
-              />
+              <QuickAddFab />
             </DashboardRefreshProvider>
           </CurrencyProvider>
           <Footer />

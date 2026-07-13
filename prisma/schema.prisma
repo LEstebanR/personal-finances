@@ -23,24 +23,78 @@ model Account {
   transactions   Transaction[]
   transfersFrom  Transfer[]    @relation("TransferFromAccount")
   transfersTo    Transfer[]    @relation("TransferToAccount")
+  debtPayments   DebtPayment[]
 
   @@index([userId])
 }
 
 model Transaction {
-  id          String   @id @default(uuid())
-  accountId   String
-  userId      String
-  amount      Decimal  @db.Decimal(15, 2)
-  type        String
-  description String
-  date        DateTime
-  category    String?
-  createdAt   DateTime @default(now())
-  account     Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  id            String       @id @default(uuid())
+  accountId     String?
+  debtId        String?
+  userId        String
+  amount        Decimal      @db.Decimal(15, 2)
+  type          String
+  description   String
+  date          DateTime
+  categoryId    String
+  subcategoryId String?
+  createdAt     DateTime     @default(now())
+  account       Account?     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  debt          Debt?        @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  category      Category     @relation(fields: [categoryId], references: [id])
+  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
 
   @@index([userId])
   @@index([accountId])
+  @@index([debtId])
+  @@index([categoryId])
+  @@index([subcategoryId])
+}
+
+model Category {
+  id            String        @id @default(uuid())
+  userId        String
+  name          String
+  type          String
+  isDefault     Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subcategories Subcategory[]
+  transactions  Transaction[]
+  budgets       Budget[]
+
+  @@index([userId])
+}
+
+model Budget {
+  id         String   @id @default(uuid())
+  userId     String
+  categoryId String
+  month      Int
+  year       Int
+  amount     Decimal  @db.Decimal(15, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId, month, year])
+  @@index([userId])
+  @@index([categoryId])
+}
+
+model Subcategory {
+  id           String        @id @default(uuid())
+  categoryId   String
+  userId       String
+  name         String
+  createdAt    DateTime      @default(now())
+  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([categoryId])
+  @@index([userId])
 }
 
 model Transfer {
@@ -72,9 +126,47 @@ model User {
   sessions      Session[]
   authaccounts  AuthAccount[]
   accounts      Account[]
+  categories    Category[]
+  debts         Debt[]
+  budgets       Budget[]
 
   @@unique([email])
   @@map("user")
+}
+
+model Debt {
+  id               String        @id @default(uuid())
+  userId           String
+  name             String
+  type             String        @default("loan")
+  originalAmount   Decimal       @db.Decimal(15, 2)
+  remainingBalance Decimal       @db.Decimal(15, 2)
+  creditLimit      Decimal?      @db.Decimal(15, 2)
+  minimumPayment   Decimal?      @db.Decimal(15, 2)
+  paymentDueDay    Int?
+  createdAt        DateTime      @default(now())
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments         DebtPayment[]
+  transactions     Transaction[]
+
+  @@index([userId])
+}
+
+model DebtPayment {
+  id        String   @id @default(uuid())
+  debtId    String
+  accountId String
+  userId    String
+  amount    Decimal  @db.Decimal(15, 2)
+  date      DateTime
+  note      String?
+  createdAt DateTime @default(now())
+  debt      Debt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([debtId])
+  @@index([accountId])
+  @@index([userId])
 }
 
 model Session {
