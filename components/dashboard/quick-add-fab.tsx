@@ -21,6 +21,13 @@ export function QuickAddFab() {
   const [isAccountOpen, setIsAccountOpen] = useState(false)
   const [isDebtOpen, setIsDebtOpen] = useState(false)
 
+  // Opening a Dialog synchronously from a DropdownMenuItem's onSelect races
+  // with the menu's own close/pointer handling and the Dialog dismisses
+  // itself immediately. Deferring to the next tick avoids the race.
+  const openAfterMenuCloses = (setOpen: (open: boolean) => void) => {
+    setTimeout(() => setOpen(true), 0)
+  }
+
   return (
     <>
       <DropdownMenu>
@@ -32,16 +39,24 @@ export function QuickAddFab() {
             <PlusIcon className="size-6" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" side="top">
-          <DropdownMenuItem onSelect={() => setIsTransactionOpen(true)}>
+        <DropdownMenuContent
+          align="end"
+          side="top"
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
+          <DropdownMenuItem
+            onSelect={() => openAfterMenuCloses(setIsTransactionOpen)}
+          >
             <CreditCard className="h-4 w-4" />
             {t('transactions.addTransaction')}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setIsAccountOpen(true)}>
+          <DropdownMenuItem
+            onSelect={() => openAfterMenuCloses(setIsAccountOpen)}
+          >
             <Wallet className="h-4 w-4" />
             {t('accounts.addAccount')}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setIsDebtOpen(true)}>
+          <DropdownMenuItem onSelect={() => openAfterMenuCloses(setIsDebtOpen)}>
             <Landmark className="h-4 w-4" />
             {t('debts.addDebt')}
           </DropdownMenuItem>

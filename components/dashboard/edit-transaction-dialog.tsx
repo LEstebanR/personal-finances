@@ -152,7 +152,7 @@ export function EditTransactionDialog({
   if (!item) return null
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>

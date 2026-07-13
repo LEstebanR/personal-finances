@@ -8,6 +8,7 @@ import { useLanguage } from '@/components/language-provider'
 import { cn } from '@/lib/utils'
 import { Check, ChevronsUpDown, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 
 import { Button } from './button'
 import {
@@ -48,7 +49,11 @@ export function SubcategoryCombobox({
     }
     getSubcategories(categoryId)
       .then(setSubcategories)
-      .catch((error) => console.error('Error loading subcategories:', error))
+      .catch((error) => {
+        console.error('Error loading subcategories:', error)
+        toast.error(t('transactions.loadSubcategoriesFailed'))
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryId])
 
   const selected = subcategories.find((s) => s.id === value)
@@ -80,6 +85,7 @@ export function SubcategoryCombobox({
       handleSelect(subcategory.id)
     } catch (error) {
       console.error('Error creating subcategory:', error)
+      toast.error(t('transactions.createSubcategoryFailed'))
     }
     setLoading(false)
   }
@@ -136,7 +142,11 @@ export function SubcategoryCombobox({
               </CommandGroup>
               {search.trim() && !exactMatch && (
                 <CommandGroup>
-                  <CommandItem onSelect={handleCreate} disabled={loading}>
+                  <CommandItem
+                    value={`__create__${search.trim()}`}
+                    onSelect={handleCreate}
+                    disabled={loading}
+                  >
                     <Plus className="h-4 w-4" />
                     {t('transactions.createSubcategory', {
                       name: search.trim(),

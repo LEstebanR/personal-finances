@@ -8,6 +8,7 @@ import { useLanguage } from '@/components/language-provider'
 import { cn } from '@/lib/utils'
 import { Check, ChevronsUpDown, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 
 import { Button } from './button'
 import {
@@ -46,7 +47,11 @@ export function CategoryCombobox({
   useEffect(() => {
     getCategories(type)
       .then(setCategories)
-      .catch((error) => console.error('Error loading categories:', error))
+      .catch((error) => {
+        console.error('Error loading categories:', error)
+        toast.error(t('transactions.loadCategoriesFailed'))
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type])
 
   const selectedCategory = categories.find((c) => c.id === value)
@@ -76,6 +81,7 @@ export function CategoryCombobox({
       handleSelect(category.id)
     } catch (error) {
       console.error('Error creating category:', error)
+      toast.error(t('transactions.createCategoryFailed'))
     }
     setLoading(false)
   }
@@ -134,7 +140,11 @@ export function CategoryCombobox({
               </CommandGroup>
               {search.trim() && !exactMatch && (
                 <CommandGroup>
-                  <CommandItem onSelect={handleCreate} disabled={loading}>
+                  <CommandItem
+                    value={`__create__${search.trim()}`}
+                    onSelect={handleCreate}
+                    disabled={loading}
+                  >
                     <Plus className="h-4 w-4" />
                     {t('transactions.createCategory', { name: search.trim() })}
                   </CommandItem>

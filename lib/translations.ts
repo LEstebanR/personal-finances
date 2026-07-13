@@ -159,11 +159,17 @@ export const translations = {
       searchOrCreateCategory: 'Search or create a category...',
       noCategoriesFound: 'No categories found.',
       createCategory: 'Create "{name}"',
+      createCategoryFailed: 'Failed to create category. Please try again.',
+      loadCategoriesFailed: 'Failed to load categories. Please try again.',
       categoryRequired: 'Category is required',
       selectSubcategory: 'Select a subcategory',
       searchOrCreateSubcategory: 'Search or create a subcategory...',
       noSubcategoriesFound: 'No subcategories found.',
       createSubcategory: 'Create "{name}"',
+      createSubcategoryFailed:
+        'Failed to create subcategory. Please try again.',
+      loadSubcategoriesFailed:
+        'Failed to load subcategories. Please try again.',
       description: 'Description',
       creatingTransaction: 'Creating Transaction...',
       table: {
@@ -484,11 +490,18 @@ export const translations = {
       searchOrCreateCategory: 'Buscá o creá una categoría...',
       noCategoriesFound: 'No se encontraron categorías.',
       createCategory: 'Crear "{name}"',
+      createCategoryFailed: 'No se pudo crear la categoría. Intentá de nuevo.',
+      loadCategoriesFailed:
+        'No se pudieron cargar las categorías. Intentá de nuevo.',
       categoryRequired: 'La categoría es obligatoria',
       selectSubcategory: 'Seleccioná una subcategoría',
       searchOrCreateSubcategory: 'Buscá o creá una subcategoría...',
       noSubcategoriesFound: 'No se encontraron subcategorías.',
       createSubcategory: 'Crear "{name}"',
+      createSubcategoryFailed:
+        'No se pudo crear la subcategoría. Intentá de nuevo.',
+      loadSubcategoriesFailed:
+        'No se pudieron cargar las subcategorías. Intentá de nuevo.',
       description: 'Descripción',
       creatingTransaction: 'Creando transacción...',
       table: {
