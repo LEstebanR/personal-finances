@@ -2,6 +2,7 @@
 
 import { createAccount, getAccounts } from '@/app/dashboard/accounts/actions'
 import { useCurrency } from '@/components/currency-provider'
+import { useLanguage } from '@/components/language-provider'
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,7 @@ import {
 } from '../ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { Textarea } from '../ui/textarea'
+import { useDashboardRefresh } from './refresh-provider'
 
 interface Account {
   id: string
@@ -43,6 +45,8 @@ interface Account {
 
 export function Accounts() {
   const currency = useCurrency()
+  const { t } = useLanguage()
+  const { refreshKey, triggerRefresh } = useDashboardRefresh()
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -59,9 +63,8 @@ export function Accounts() {
 
   useEffect(() => {
     loadAccounts().finally(() => setLoading(false))
-  }, [])
+  }, [refreshKey])
 
-  // Filtrar accounts por tipo
   const filterAccountsByType = (type: 'all' | 'cash' | 'savings') => {
     if (type === 'all') return accounts
     return accounts.filter((account) => account.type === type)
@@ -74,23 +77,26 @@ export function Accounts() {
 
     try {
       const account = await createAccount(formData)
-      toast.success(`Account "${account.name}" created successfully!`, {
-        description: `Balance: $${formatMoney(account.currentBalance, currency)}`,
+      toast.success(t('accounts.accountCreated', { name: account.name }), {
+        description: t('accounts.accountCreatedDesc', {
+          amount: formatMoney(account.currentBalance, currency),
+        }),
       })
-      await loadAccounts()
+      triggerRefresh()
       e.currentTarget?.reset()
       setIsDialogOpen(false)
     } catch (error) {
       console.error('Insert error:', error)
-      toast.error('Failed to create account. Please try again.')
+      toast.error(t('accounts.accountCreateFailed'))
     }
 
     setIsSubmitting(false)
   }
 
-  // Componente para renderizar una account card
   const AccountCard = ({ account }: { account: Account }) => {
     const Icon = account.type === 'cash' ? Wallet : PiggyBank
+    const typeLabel =
+      account.type === 'cash' ? t('accounts.cash') : t('accounts.savings')
 
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
@@ -99,8 +105,8 @@ export function Accounts() {
             <div className="bg-primary/10 rounded-lg p-2">
               <Icon className="text-primary h-5 w-5" />
             </div>
-            <span className="text-primary bg-primary/10 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize">
-              {account.type}
+            <span className="text-primary bg-primary/10 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium">
+              {typeLabel}
             </span>
           </div>
         </div>
@@ -109,9 +115,10 @@ export function Accounts() {
           {account.name}
         </h3>
 
-        {/* Balance */}
         <div className="mb-4">
-          <p className="mb-1 text-sm text-gray-500">Current Balance</p>
+          <p className="mb-1 text-sm text-gray-500">
+            {t('accounts.currentBalance')}
+          </p>
           <p className="text-3xl font-bold text-gray-900">
             ${formatMoney(Number(account.currentBalance), currency)}
           </p>
@@ -120,81 +127,78 @@ export function Accounts() {
     )
   }
 
-  // Componente EmptyState para categorías sin accounts
+  const AccountForm = ({
+    defaultType,
+  }: {
+    defaultType?: 'cash' | 'savings'
+  }) => (
+    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+      <div className="flex flex-col gap-1">
+        <Label>{t('accounts.accountName')}</Label>
+        <Input type="text" name="accountName" required />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label>{t('accounts.accountType')}</Label>
+        <Select name="accountType" required defaultValue={defaultType}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder={t('accounts.selectAccountType')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="cash">{t('accounts.cash')}</SelectItem>
+            <SelectItem value="savings">{t('accounts.savings')}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label>{t('accounts.initialBalance')}</Label>
+        <CurrencyInput name="initialBalance" required />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label>{t('accounts.description')}</Label>
+        <Textarea name="description" className="resize-none" />
+      </div>
+      <Button className="w-full" type="submit" disabled={isSubmitting}>
+        {isSubmitting ? (
+          <>
+            <Loader className="mr-2 h-4 w-4 animate-spin" />
+            {t('accounts.creatingAccount')}
+          </>
+        ) : (
+          t('accounts.addAccount')
+        )}
+      </Button>
+    </form>
+  )
+
   const EmptyState = ({ type }: { type: 'cash' | 'savings' }) => {
     const Icon = type === 'cash' ? Wallet : PiggyBank
-    const typeLabel = type === 'cash' ? 'Cash' : 'Savings'
+    const typeLabel =
+      type === 'cash' ? t('accounts.cash') : t('accounts.savings')
 
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <Icon className="mb-4 h-16 w-16 text-gray-300" />
         <h3 className="mb-2 text-lg font-semibold text-gray-900">
-          No {typeLabel} Accounts Yet
+          {t('accounts.noAccountsYet', { type: typeLabel })}
         </h3>
         <p className="mb-6 max-w-sm text-gray-500">
-          You haven&apos;t created any {typeLabel.toLowerCase()} accounts yet.
-          Create your first {typeLabel.toLowerCase()} account to start tracking
-          your money.
+          {t('accounts.noAccountsYetDesc', { type: typeLabel.toLowerCase() })}
         </p>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <PlusIcon className="mr-2 h-4 w-4" />
-              Create {typeLabel} Account
+              {t('accounts.createTypeAccount', { type: typeLabel })}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add Account</DialogTitle>
+              <DialogTitle>{t('accounts.addAccount')}</DialogTitle>
             </DialogHeader>
             <DialogDescription>
-              Create a new financial account to track your money.
+              {t('accounts.dialogDescription')}
             </DialogDescription>
-            <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-              <div className="flex flex-col gap-1">
-                <Label>Account Name</Label>
-                <Input
-                  type="text"
-                  name="accountName"
-                  placeholder="Account Name"
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>Account Type</Label>
-                <Select name="accountType" required defaultValue={type}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select Account Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="savings">Savings</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>Initial Balance</Label>
-                <CurrencyInput name="initialBalance" required />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>Description</Label>
-                <Textarea
-                  name="description"
-                  placeholder="Description"
-                  className="resize-none"
-                />
-              </div>
-              <Button className="w-full" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <Loader className="mr-2 h-4 w-4 animate-spin" />
-                    Creating Account...
-                  </>
-                ) : (
-                  'Add Account'
-                )}
-              </Button>
-            </form>
+            <AccountForm defaultType={type} />
           </DialogContent>
         </Dialog>
       </div>
@@ -204,87 +208,45 @@ export function Accounts() {
   return (
     <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
       <div className="flex w-full justify-between">
-        <h1 className="text-2xl font-bold">Accounts</h1>
+        <h1 className="text-2xl font-bold">{t('accounts.title')}</h1>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <PlusIcon className="size-4" />
-              Add Account
+              {t('accounts.addAccount')}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add Account</DialogTitle>
+              <DialogTitle>{t('accounts.addAccount')}</DialogTitle>
             </DialogHeader>
             <DialogDescription>
-              Create a new financial account to track your money.
+              {t('accounts.dialogDescription')}
             </DialogDescription>
-            <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-              <div className="flex flex-col gap-1">
-                <Label>Account Name</Label>
-                <Input
-                  type="text"
-                  name="accountName"
-                  placeholder="Account Name"
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>Account Type</Label>
-                <Select name="accountType" required>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select Account Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="savings">Savings</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>Initial Balance</Label>
-                <CurrencyInput name="initialBalance" required />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>Description</Label>
-                <Textarea
-                  name="description"
-                  placeholder="Description"
-                  className="resize-none"
-                />
-              </div>
-              <Button className="w-full" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <Loader className="mr-2 h-4 w-4 animate-spin" />
-                    Creating Account...
-                  </>
-                ) : (
-                  'Add Account'
-                )}
-              </Button>
-            </form>
+            <AccountForm />
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Lista de accounts con tabs */}
       <div className="mt-6 w-full">
         {loading ? (
           <Loader className="m-auto h-8 w-8 animate-spin" />
         ) : accounts.length === 0 ? (
           <p className="text-center text-gray-500">
-            No accounts found. Create your first account!
+            {t('accounts.noAccountsFound')}
           </p>
         ) : (
           <Tabs defaultValue="all" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="all">All ({accounts.length})</TabsTrigger>
+              <TabsTrigger value="all">
+                {t('accounts.all')} ({accounts.length})
+              </TabsTrigger>
               <TabsTrigger value="cash">
-                Cash ({filterAccountsByType('cash').length})
+                {t('accounts.cash')} ({filterAccountsByType('cash').length})
               </TabsTrigger>
               <TabsTrigger value="savings">
-                Savings ({filterAccountsByType('savings').length})
+                {t('accounts.savings')} (
+                {filterAccountsByType('savings').length})
               </TabsTrigger>
             </TabsList>
 

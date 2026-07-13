@@ -1,3 +1,6 @@
+'use client'
+
+import { useLanguage } from '@/components/language-provider'
 import {
   Sidebar,
   SidebarContent,
@@ -8,44 +11,36 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from '@/components/ui/sidebar'
 import { CreditCard, Home, Settings, User, Wallet } from 'lucide-react'
 import Link from 'next/link'
 
 import { Logo } from './logo'
 
-const OPTIONS_MENU = [
-  {
-    icon: <Home />,
-    label: 'Overview',
-    href: '?overview',
-  },
-  {
-    icon: <Wallet />,
-    label: 'Accounts',
-    href: '?accounts',
-  },
-  {
-    icon: <CreditCard />,
-    label: 'Transactions',
-    href: '?transactions',
-  },
-]
-
-const OPTIONS_SETTINGS = [
-  {
-    icon: <User />,
-    label: 'Profile',
-    href: '?profile',
-  },
-  {
-    icon: <Settings />,
-    label: 'Settings',
-    href: '?settings',
-  },
-]
-
 export function AppSidebar() {
+  const { isMobile, setOpenMobile } = useSidebar()
+  const { t } = useLanguage()
+
+  const closeOnMobile = () => {
+    if (isMobile) setOpenMobile(false)
+  }
+
+  const optionsMenu = [
+    { icon: <Home />, label: t('nav.overview'), href: '?overview' },
+    { icon: <Wallet />, label: t('nav.accounts'), href: '?accounts' },
+    {
+      icon: <CreditCard />,
+      label: t('nav.transactions'),
+      href: '?transactions',
+    },
+  ]
+
+  const optionsSettings = [
+    { icon: <User />, label: t('nav.profile'), href: '?profile' },
+    { icon: <Settings />, label: t('nav.settings'), href: '?settings' },
+  ]
+
   return (
     <Sidebar className="">
       <SidebarHeader>
@@ -53,14 +48,14 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <SidebarGroupLabel>{t('nav.menu')}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {OPTIONS_MENU.map((option) => {
+              {optionsMenu.map((option) => {
                 return (
-                  <SidebarMenuItem key={option.label}>
+                  <SidebarMenuItem key={option.href}>
                     <SidebarMenuButton className="cursor-pointer" asChild>
-                      <Link href={option.href}>
+                      <Link href={option.href} onClick={closeOnMobile}>
                         {option.icon} {option.label}
                       </Link>
                     </SidebarMenuButton>
@@ -71,14 +66,14 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
-          <SidebarGroupLabel>User Settings</SidebarGroupLabel>
+          <SidebarGroupLabel>{t('nav.userSettings')}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {OPTIONS_SETTINGS.map((option) => {
+              {optionsSettings.map((option) => {
                 return (
-                  <SidebarMenuItem key={option.label}>
+                  <SidebarMenuItem key={option.href}>
                     <SidebarMenuButton className="cursor-pointer" asChild>
-                      <Link href={option.href}>
+                      <Link href={option.href} onClick={closeOnMobile}>
                         {option.icon} {option.label}
                       </Link>
                     </SidebarMenuButton>

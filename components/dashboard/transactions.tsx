@@ -2,36 +2,16 @@
 
 import { getAccounts } from '@/app/dashboard/accounts/actions'
 import {
-  createTransaction,
-  createTransfer,
   getTransactions,
   getTransfers,
 } from '@/app/dashboard/transactions/actions'
 import { useCurrency } from '@/components/currency-provider'
-import { formatMoney, parseCurrencyInput } from '@/lib/currency'
+import { useLanguage } from '@/components/language-provider'
+import { formatMoney } from '@/lib/currency'
 import { Loader, PlusIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { toast } from 'sonner'
 
 import { Button } from '../ui/button'
-import { CurrencyInput } from '../ui/currency-input'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '../ui/dialog'
-import { Input } from '../ui/input'
-import { Label } from '../ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select'
 import {
   Table,
   TableBody,
@@ -41,14 +21,13 @@ import {
   TableRow,
 } from '../ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
-import { Textarea } from '../ui/textarea'
-
-interface Account {
-  id: string
-  name: string
-  type: string
-  isArchived: boolean
-}
+import { AddTransactionDialog } from './add-transaction-dialog'
+import {
+  EditTransactionDialog,
+  type EditableItem,
+} from './edit-transaction-dialog'
+import { useDashboardRefresh } from './refresh-provider'
+import { TransactionRowActions } from './transaction-row-actions'
 
 interface Transaction {
   id: string
@@ -71,6 +50,11 @@ interface Transfer {
   createdAt: Date
 }
 
+interface AccountName {
+  id: string
+  name: string
+}
+
 type CombinedItem =
   | (Transaction & { itemType: 'transaction'; accountName?: string })
   | (Transfer & {
@@ -79,69 +63,78 @@ type CombinedItem =
       toAccountName?: string
     })
 
+function toEditableItem(item: CombinedItem): EditableItem {
+  if (item.itemType === 'transfer') {
+    return {
+      itemType: 'transfer',
+      id: item.id,
+      fromAccountId: item.fromAccountId,
+      toAccountId: item.toAccountId,
+      amount: item.amount,
+      date: item.date,
+      note: item.note,
+    }
+  }
+  return {
+    itemType: 'transaction',
+    id: item.id,
+    accountId: item.accountId,
+    amount: item.amount,
+    type: item.type,
+    description: item.description,
+    date: item.date,
+    category: item.category,
+  }
+}
+
 export function Transactions() {
   const currency = useCurrency()
+  const { t } = useLanguage()
+  const { refreshKey } = useDashboardRefresh()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [transfers, setTransfers] = useState<Transfer[]>([])
+  const [accounts, setAccounts] = useState<AccountName[]>([])
   const [combinedItems, setCombinedItems] = useState<CombinedItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [availableAccounts, setAvailableAccounts] = useState<Account[]>([])
-  const [loadingAccounts, setLoadingAccounts] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [transactionsPerPage] = useState(10)
-  const [transactionType, setTransactionType] = useState<string>('')
-
-  const loadTransactionsAndTransfers = async () => {
-    try {
-      const [transactions, transfers] = await Promise.all([
-        getTransactions(),
-        getTransfers(),
-      ])
-      setTransactions(transactions)
-      setTransfers(transfers)
-    } catch (error) {
-      console.error('Error loading transactions/transfers:', error)
-    }
-  }
-
-  const loadAvailableAccounts = async () => {
-    setLoadingAccounts(true)
-    try {
-      const accounts = await getAccounts()
-      setAvailableAccounts(accounts.filter((account) => !account.isArchived))
-    } catch (error) {
-      console.error('Error loading available accounts:', error)
-    }
-    setLoadingAccounts(false)
-  }
+  const [editingItem, setEditingItem] = useState<EditableItem | null>(null)
+  const [isEditOpen, setIsEditOpen] = useState(false)
 
   useEffect(() => {
-    Promise.all([
-      loadTransactionsAndTransfers(),
-      loadAvailableAccounts(),
-    ]).finally(() => setLoading(false))
-  }, [])
+    const load = async () => {
+      try {
+        const [accountsData, transactionsData, transfersData] =
+          await Promise.all([getAccounts(), getTransactions(), getTransfers()])
+        setAccounts(accountsData)
+        setTransactions(transactionsData)
+        setTransfers(transfersData)
+      } catch (error) {
+        console.error('Error loading transactions/transfers:', error)
+      }
+      setLoading(false)
+    }
 
-  // Combinar transacciones y transferencias cuando cambien
+    load()
+  }, [refreshKey])
+
   useEffect(() => {
     const accountMap = new Map<string, string>()
-    for (const account of availableAccounts) {
+    for (const account of accounts) {
       accountMap.set(account.id, account.name)
     }
 
-    const transactionItems: CombinedItem[] = transactions.map((t) => ({
-      ...t,
+    const transactionItems: CombinedItem[] = transactions.map((tItem) => ({
+      ...tItem,
       itemType: 'transaction' as const,
-      accountName: accountMap.get(t.accountId),
+      accountName: accountMap.get(tItem.accountId),
     }))
 
-    const transferItems: CombinedItem[] = transfers.map((t) => ({
-      ...t,
+    const transferItems: CombinedItem[] = transfers.map((tItem) => ({
+      ...tItem,
       itemType: 'transfer' as const,
-      fromAccountName: accountMap.get(t.fromAccountId),
-      toAccountName: accountMap.get(t.toAccountId),
+      fromAccountName: accountMap.get(tItem.fromAccountId),
+      toAccountName: accountMap.get(tItem.toAccountId),
     }))
 
     const combined = [...transactionItems, ...transferItems].sort(
@@ -150,9 +143,8 @@ export function Transactions() {
     )
 
     setCombinedItems(combined)
-  }, [transactions, transfers, availableAccounts])
+  }, [transactions, transfers, accounts])
 
-  // Filtrar items combinados por tipo
   const filterItemsByType = (
     type: 'all' | 'income' | 'expense' | 'transfer'
   ) => {
@@ -165,7 +157,6 @@ export function Transactions() {
     )
   }
 
-  // Paginación
   const paginate = (items: CombinedItem[], page: number) => {
     const startIndex = (page - 1) * transactionsPerPage
     const endIndex = startIndex + transactionsPerPage
@@ -176,216 +167,25 @@ export function Transactions() {
     return Math.ceil(items.length / transactionsPerPage)
   }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    const formData = new FormData(e.currentTarget)
-    const type = formData.get('type') as string
-
-    try {
-      if (type === 'transfer') {
-        const fromAccountId = formData.get('fromAccountId') as string
-        const toAccountId = formData.get('toAccountId') as string
-        const amount = parseCurrencyInput(formData.get('amount'))
-
-        await createTransfer(formData)
-
-        const fromAccount = availableAccounts.find(
-          (a) => a.id === fromAccountId
-        )
-        const toAccount = availableAccounts.find((a) => a.id === toAccountId)
-
-        toast.success('Transfer completed successfully!', {
-          description: `$${formatMoney(amount, currency)} from ${fromAccount?.name || 'Account'} to ${toAccount?.name || 'Account'}`,
-        })
-      } else {
-        const accountId = formData.get('accountId') as string
-        const amount = parseCurrencyInput(formData.get('amount'))
-
-        await createTransaction(formData)
-
-        const account = availableAccounts.find((a) => a.id === accountId)
-        const typeLabel = type === 'income' ? 'Income' : 'Expense'
-
-        toast.success(`${typeLabel} transaction created!`, {
-          description: `${type === 'income' ? '+' : '-'}$${formatMoney(amount, currency)} • ${account?.name || 'Account'}`,
-        })
-      }
-
-      await loadTransactionsAndTransfers()
-      e.currentTarget?.reset()
-      setTransactionType('')
-      setIsDialogOpen(false)
-      setCurrentPage(1)
-    } catch (error) {
-      console.error('Error creating transaction/transfer:', error)
-      toast.error('Failed to save. Please try again.')
-    }
-
-    setIsSubmitting(false)
+  const handleEdit = (item: EditableItem) => {
+    setEditingItem(item)
+    setIsEditOpen(true)
   }
 
   return (
     <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
       <div className="flex w-full justify-between">
-        <h1 className="text-2xl font-bold">Transactions</h1>
-        <Dialog
-          open={isDialogOpen}
-          onOpenChange={(open) => {
-            setIsDialogOpen(open)
-            if (open) {
-              loadAvailableAccounts()
-            } else {
-              setTransactionType('')
-            }
-          }}
-        >
-          <DialogTrigger asChild>
+        <h1 className="text-2xl font-bold">{t('transactions.title')}</h1>
+        <AddTransactionDialog
+          trigger={
             <Button>
               <PlusIcon className="size-4" />
-              Add Transaction
+              {t('transactions.addTransaction')}
             </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Transaction</DialogTitle>
-            </DialogHeader>
-            <DialogDescription>
-              Create a new transaction to track your money.
-            </DialogDescription>
-            <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-              <div className="flex flex-col gap-1">
-                <Label>Transaction Type</Label>
-                <Select
-                  name="type"
-                  required
-                  onValueChange={(value) => setTransactionType(value)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select transaction type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="income">Income</SelectItem>
-                    <SelectItem value="expense">Expense</SelectItem>
-                    <SelectItem value="transfer">Transfer</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {transactionType === 'transfer' ? (
-                <>
-                  <div className="flex flex-col gap-1">
-                    <Label>From Account</Label>
-                    <Select name="fromAccountId" required>
-                      <SelectTrigger className="w-full">
-                        <SelectValue
-                          placeholder={
-                            loadingAccounts
-                              ? 'Loading accounts...'
-                              : 'Select source account'
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableAccounts.map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.name} ({account.type})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label>To Account</Label>
-                    <Select name="toAccountId" required>
-                      <SelectTrigger className="w-full">
-                        <SelectValue
-                          placeholder={
-                            loadingAccounts
-                              ? 'Loading accounts...'
-                              : 'Select destination account'
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableAccounts.map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.name} ({account.type})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              ) : (
-                transactionType && (
-                  <div className="flex flex-col gap-1">
-                    <Label>Account</Label>
-                    <Select name="accountId" required>
-                      <SelectTrigger className="w-full">
-                        <SelectValue
-                          placeholder={
-                            loadingAccounts
-                              ? 'Loading accounts...'
-                              : 'Select an account'
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableAccounts.map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.name} ({account.type})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )
-              )}
-              <div className="flex flex-col gap-1">
-                <Label>Amount</Label>
-                <CurrencyInput name="amount" required />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>Date</Label>
-                <Input
-                  type="date"
-                  name="date"
-                  required
-                  defaultValue={new Date().toISOString().split('T')[0]}
-                />
-              </div>
-              {transactionType !== 'transfer' && (
-                <div className="flex flex-col gap-1">
-                  <Label>Category (Optional)</Label>
-                  <Input type="text" name="category" placeholder="Category" />
-                </div>
-              )}
-              <div className="flex flex-col gap-1">
-                <Label>Description</Label>
-                <Textarea
-                  name="description"
-                  placeholder="Description"
-                  className="resize-none"
-                  required
-                />
-              </div>
-              <Button className="w-full" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <Loader className="mr-2 h-4 w-4 animate-spin" />
-                    Creating Transaction...
-                  </>
-                ) : (
-                  'Add Transaction'
-                )}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+          }
+        />
       </div>
 
-      {/* Lista de transacciones y transferencias con tabs */}
       <div className="mt-6 w-full">
         {loading ? (
           <div className="flex justify-center">
@@ -393,22 +193,25 @@ export function Transactions() {
           </div>
         ) : combinedItems.length === 0 ? (
           <p className="text-center text-gray-500">
-            No transactions or transfers found. Create your first one!
+            {t('transactions.noItemsFound')}
           </p>
         ) : (
           <Tabs defaultValue="all" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="all">
-                All ({combinedItems.length})
+                {t('transactions.all')} ({combinedItems.length})
               </TabsTrigger>
               <TabsTrigger value="income">
-                Income ({filterItemsByType('income').length})
+                {t('transactions.income')} ({filterItemsByType('income').length}
+                )
               </TabsTrigger>
               <TabsTrigger value="expense">
-                Expenses ({filterItemsByType('expense').length})
+                {t('transactions.expense')} (
+                {filterItemsByType('expense').length})
               </TabsTrigger>
               <TabsTrigger value="transfer">
-                Transfers ({filterItemsByType('transfer').length})
+                {t('transactions.transfer')} (
+                {filterItemsByType('transfer').length})
               </TabsTrigger>
             </TabsList>
 
@@ -421,115 +224,151 @@ export function Transactions() {
 
               return (
                 <TabsContent key={tabType} value={tabType} className="mt-6">
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Description</TableHead>
-                          <TableHead>Account</TableHead>
-                          <TableHead>Category/Type</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Date</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {paginatedItems.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell className="font-medium">
-                              {item.itemType === 'transaction'
-                                ? item.description
-                                : item.note || 'Transfer'}
-                            </TableCell>
-                            <TableCell>
-                              {item.itemType === 'transaction' ? (
-                                item.accountName || '-'
-                              ) : (
-                                <span className="text-xs">
-                                  {item.fromAccountName} → {item.toAccountName}
-                                </span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {item.itemType === 'transaction' ? (
-                                <>
-                                  <span
-                                    className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                                      item.type === 'income'
-                                        ? 'bg-green-100 text-green-800'
-                                        : 'bg-red-100 text-red-800'
-                                    }`}
-                                  >
-                                    {item.type}
-                                  </span>
-                                  <div className="mt-1 text-xs text-gray-500">
-                                    {item.category || '-'}
-                                  </div>
-                                </>
-                              ) : (
-                                <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800">
-                                  Transfer
-                                </span>
-                              )}
-                            </TableCell>
-                            <TableCell
-                              className={
-                                item.itemType === 'transaction'
-                                  ? item.type === 'income'
-                                    ? 'text-green-600'
-                                    : 'text-red-600'
-                                  : 'text-blue-600'
-                              }
-                            >
-                              {item.itemType === 'transaction' &&
-                              item.type === 'income'
-                                ? '+'
-                                : item.itemType === 'transaction'
-                                  ? '-'
-                                  : ''}
-                              ${formatMoney(Number(item.amount), currency)}
-                            </TableCell>
-                            <TableCell>
-                              {new Date(item.date).toLocaleDateString()}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                  {filteredItems.length === 0 ? (
+                    <p className="text-center text-gray-500">
+                      {t('transactions.noItemsFound')}
+                    </p>
+                  ) : (
+                    <>
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>
+                                {t('transactions.table.description')}
+                              </TableHead>
+                              <TableHead>
+                                {t('transactions.table.account')}
+                              </TableHead>
+                              <TableHead>
+                                {t('transactions.table.type')}
+                              </TableHead>
+                              <TableHead>
+                                {t('transactions.table.category')}
+                              </TableHead>
+                              <TableHead>
+                                {t('transactions.table.amount')}
+                              </TableHead>
+                              <TableHead>
+                                {t('transactions.table.date')}
+                              </TableHead>
+                              <TableHead className="text-right">
+                                {t('transactions.table.actions')}
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {paginatedItems.map((item) => (
+                              <TableRow key={item.id}>
+                                <TableCell className="font-medium">
+                                  {item.itemType === 'transaction'
+                                    ? item.description
+                                    : item.note || t('overview.transfer')}
+                                </TableCell>
+                                <TableCell>
+                                  {item.itemType === 'transaction' ? (
+                                    item.accountName || '-'
+                                  ) : (
+                                    <span className="text-xs">
+                                      {item.fromAccountName} →{' '}
+                                      {item.toAccountName}
+                                    </span>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  {item.itemType === 'transaction' ? (
+                                    <span
+                                      className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                                        item.type === 'income'
+                                          ? 'bg-green-100 text-green-800'
+                                          : 'bg-red-100 text-red-800'
+                                      }`}
+                                    >
+                                      {item.type === 'income'
+                                        ? t('transactions.income')
+                                        : t('transactions.expense')}
+                                    </span>
+                                  ) : (
+                                    <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800">
+                                      {t('overview.transfer')}
+                                    </span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-gray-500">
+                                  {item.itemType === 'transaction'
+                                    ? item.category || '-'
+                                    : '-'}
+                                </TableCell>
+                                <TableCell
+                                  className={
+                                    item.itemType === 'transaction'
+                                      ? item.type === 'income'
+                                        ? 'text-green-600'
+                                        : 'text-red-600'
+                                      : 'text-blue-600'
+                                  }
+                                >
+                                  {item.itemType === 'transaction' &&
+                                  item.type === 'income'
+                                    ? '+'
+                                    : item.itemType === 'transaction'
+                                      ? '-'
+                                      : ''}
+                                  ${formatMoney(Number(item.amount), currency)}
+                                </TableCell>
+                                <TableCell>
+                                  {new Date(item.date).toLocaleDateString()}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <TransactionRowActions
+                                    item={toEditableItem(item)}
+                                    onEdit={handleEdit}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
 
-                  {/* Paginación */}
-                  {totalPages > 1 && (
-                    <div className="mt-4 flex items-center justify-between">
-                      <div className="text-sm text-gray-700">
-                        Showing {(currentPage - 1) * transactionsPerPage + 1} to{' '}
-                        {Math.min(
-                          currentPage * transactionsPerPage,
-                          filteredItems.length
-                        )}{' '}
-                        of {filteredItems.length} items
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage(currentPage - 1)}
-                          disabled={currentPage === 1}
-                        >
-                          Previous
-                        </Button>
-                        <span className="flex items-center px-4 text-sm">
-                          Page {currentPage} of {totalPages}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                        >
-                          Next
-                        </Button>
-                      </div>
-                    </div>
+                      {totalPages > 1 && (
+                        <div className="mt-4 flex items-center justify-between">
+                          <div className="text-sm text-gray-700">
+                            {t('transactions.showing')}{' '}
+                            {(currentPage - 1) * transactionsPerPage + 1}{' '}
+                            {t('transactions.to')}{' '}
+                            {Math.min(
+                              currentPage * transactionsPerPage,
+                              filteredItems.length
+                            )}{' '}
+                            {t('transactions.of')} {filteredItems.length}{' '}
+                            {t('transactions.items')}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCurrentPage(currentPage - 1)}
+                              disabled={currentPage === 1}
+                            >
+                              {t('transactions.previous')}
+                            </Button>
+                            <span className="flex items-center px-4 text-sm">
+                              {t('transactions.page')} {currentPage}{' '}
+                              {t('transactions.of')} {totalPages}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCurrentPage(currentPage + 1)}
+                              disabled={currentPage === totalPages}
+                            >
+                              {t('transactions.next')}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </TabsContent>
               )
@@ -537,6 +376,12 @@ export function Transactions() {
           </Tabs>
         )}
       </div>
+
+      <EditTransactionDialog
+        item={editingItem}
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+      />
     </div>
   )
 }

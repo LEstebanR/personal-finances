@@ -1,6 +1,7 @@
 'use client'
 
 import { getProfile, updateProfile } from '@/app/dashboard/profile/actions'
+import { useLanguage } from '@/components/language-provider'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,7 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { timezones } from '@/lib/timezones'
+import { TimezoneCombobox } from '@/components/ui/timezone-combobox'
 import {
   Calendar,
   Loader,
@@ -46,6 +47,7 @@ interface ProfileData {
 }
 
 export function Profile() {
+  const { t, language } = useLanguage()
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [loading, setLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -65,10 +67,10 @@ export function Profile() {
     try {
       const updated = await updateProfile(formData)
       setProfile((prev) => (prev ? { ...prev, name: updated.name } : prev))
-      toast.success('Profile updated successfully!')
+      toast.success(t('profile.updateSuccess'))
     } catch (error) {
       console.error('Error updating profile:', error)
-      toast.error('Failed to update profile. Please try again.')
+      toast.error(t('profile.updateFailed'))
     }
 
     setIsSaving(false)
@@ -92,17 +94,19 @@ export function Profile() {
       className="flex w-full flex-col gap-4 rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8"
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">Profile settings</h2>
+        <h2 className="text-2xl font-bold tracking-tight">
+          {t('profile.title')}
+        </h2>
         <Button type="submit" disabled={isSaving}>
           {isSaving ? (
             <>
               <Loader className="mr-2 h-4 w-4 animate-spin" />
-              Saving...
+              {t('profile.saving')}
             </>
           ) : (
             <>
               <Save className="mr-2 h-4 w-4" />
-              Save Changes
+              {t('profile.saveChanges')}
             </>
           )}
         </Button>
@@ -111,7 +115,7 @@ export function Profile() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="md:col-span-1">
           <CardHeader>
-            <CardTitle>Account</CardTitle>
+            <CardTitle>{t('profile.account')}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center space-y-4">
             <Avatar className="h-24 w-24">
@@ -123,19 +127,21 @@ export function Profile() {
             <div className="space-y-1 text-center">
               <p className="font-medium">{profile.name}</p>
               <p className="text-muted-foreground text-sm">{profile.email}</p>
-              <Badge variant="secondary">Signed in with Google</Badge>
+              <Badge variant="secondary">
+                {t('profile.signedInWithGoogle')}
+              </Badge>
             </div>
           </CardContent>
         </Card>
 
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle>Personal Information</CardTitle>
-            <CardDescription>Update your name</CardDescription>
+            <CardTitle>{t('profile.personalInformation')}</CardTitle>
+            <CardDescription>{t('profile.updateYourName')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">{t('profile.name')}</Label>
               <Input
                 id="name"
                 name="name"
@@ -144,10 +150,10 @@ export function Profile() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('profile.email')}</Label>
               <Input id="email" value={profile.email} disabled />
               <p className="text-muted-foreground text-xs">
-                Managed by your Google account
+                {t('profile.managedByGoogle')}
               </p>
             </div>
           </CardContent>
@@ -156,12 +162,14 @@ export function Profile() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Financial Preferences</CardTitle>
-          <CardDescription>Configure your financial settings</CardDescription>
+          <CardTitle>{t('profile.financialPreferences')}</CardTitle>
+          <CardDescription>
+            {t('profile.configureFinancialSettings')}
+          </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
           <div className="space-y-2">
-            <Label htmlFor="currency">Default Currency</Label>
+            <Label htmlFor="currency">{t('profile.defaultCurrency')}</Label>
             <Select name="currency" defaultValue={profile.currency}>
               <SelectTrigger id="currency">
                 <SelectValue />
@@ -176,31 +184,22 @@ export function Profile() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="timezone">Timezone</Label>
-            <Select name="timezone" defaultValue={profile.timezone}>
-              <SelectTrigger id="timezone">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {timezones.map((timezone) => (
-                  <SelectItem key={timezone} value={timezone}>
-                    {timezone.replace(/_/g, ' ')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="timezone">{t('profile.timezone')}</Label>
+            <TimezoneCombobox name="timezone" defaultValue={profile.timezone} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="budgetPeriod">Budget Period</Label>
+            <Label htmlFor="budgetPeriod">{t('profile.budgetPeriod')}</Label>
             <Select name="budgetPeriod" defaultValue={profile.budgetPeriod}>
               <SelectTrigger id="budgetPeriod">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="quarterly">Quarterly</SelectItem>
-                <SelectItem value="yearly">Yearly</SelectItem>
+                <SelectItem value="weekly">{t('profile.weekly')}</SelectItem>
+                <SelectItem value="monthly">{t('profile.monthly')}</SelectItem>
+                <SelectItem value="quarterly">
+                  {t('profile.quarterly')}
+                </SelectItem>
+                <SelectItem value="yearly">{t('profile.yearly')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -209,27 +208,31 @@ export function Profile() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Account Statistics</CardTitle>
-          <CardDescription>Your activity in this app</CardDescription>
+          <CardTitle>{t('profile.accountStatistics')}</CardTitle>
+          <CardDescription>{t('profile.yourActivity')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-4">
             <div className="flex items-center space-x-2">
               <Calendar className="text-primary h-4 w-4" />
               <div>
-                <p className="text-muted-foreground text-sm">Member Since</p>
+                <p className="text-muted-foreground text-sm">
+                  {t('profile.memberSince')}
+                </p>
                 <p className="font-medium">
-                  {profile.memberSince.toLocaleDateString('en-US', {
-                    month: 'long',
-                    year: 'numeric',
-                  })}
+                  {profile.memberSince.toLocaleDateString(
+                    language === 'es' ? 'es-ES' : 'en-US',
+                    { month: 'long', year: 'numeric' }
+                  )}
                 </p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
               <Wallet className="text-primary h-4 w-4" />
               <div>
-                <p className="text-muted-foreground text-sm">Accounts</p>
+                <p className="text-muted-foreground text-sm">
+                  {t('profile.accounts')}
+                </p>
                 <p className="font-medium">{profile.totalAccounts}</p>
               </div>
             </div>
@@ -237,7 +240,7 @@ export function Profile() {
               <TrendingUp className="text-primary h-4 w-4" />
               <div>
                 <p className="text-muted-foreground text-sm">
-                  Total Transactions
+                  {t('profile.totalTransactions')}
                 </p>
                 <p className="font-medium">{profile.totalTransactions}</p>
               </div>
@@ -245,7 +248,9 @@ export function Profile() {
             <div className="flex items-center space-x-2">
               <Shield className="text-primary h-4 w-4" />
               <div>
-                <p className="text-muted-foreground text-sm">Sign-in Method</p>
+                <p className="text-muted-foreground text-sm">
+                  {t('profile.signInMethod')}
+                </p>
                 <p className="font-medium">Google</p>
               </div>
             </div>

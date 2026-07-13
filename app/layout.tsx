@@ -1,3 +1,4 @@
+import { LanguageProvider } from '@/components/language-provider'
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Toaster } from 'sonner'
@@ -30,8 +31,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} flex w-full flex-col antialiased`}
       >
-        <main className="flex-1">{children}</main>
-        <Toaster richColors position="top-right" />
+        <LanguageProvider>
+          <main className="flex-1">{children}</main>
+          <Toaster richColors position="top-right" />
+        </LanguageProvider>
       </body>
     </html>
   )

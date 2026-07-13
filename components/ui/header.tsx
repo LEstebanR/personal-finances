@@ -1,5 +1,6 @@
 'use client'
 
+import { useLanguage } from '@/components/language-provider'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -9,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { LanguageToggle } from '@/components/ui/language-toggle'
 import { Logo } from '@/components/ui/logo'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { authClient } from '@/lib/auth-client'
@@ -36,11 +38,16 @@ function HeaderContent({
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentView = Array.from(searchParams.entries())[0]?.[0]
+  const { t } = useLanguage()
 
   const handleLogout = async () => {
     await authClient.signOut()
     router.push('/')
   }
+
+  const viewTitle = currentView
+    ? (t(`nav.${currentView}`) ?? currentView)
+    : t('nav.accounts')
 
   return (
     <header
@@ -55,34 +62,37 @@ function HeaderContent({
             <Logo />
           </Link>
           <h2 className="hidden text-lg font-bold capitalize md:block">
-            {currentView || 'Accounts'}
+            {viewTitle}
           </h2>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Avatar className="cursor-pointer">
-                <AvatarImage src={user?.image ?? ''} alt={user?.name} />
-                <AvatarFallback>
-                  {user?.name?.charAt(0).toUpperCase() ?? ''}
-                </AvatarFallback>
-              </Avatar>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="mt-2 rounded-t-none">
-              <DropdownMenuLabel className="text-bold py-0">
-                {user?.name}
-              </DropdownMenuLabel>
-              <DropdownMenuLabel className="py-0 text-gray-500">
-                {user?.email}
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="flex items-center gap-2"
-              >
-                <LogOut className="h-4 w-4" />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2">
+            <LanguageToggle />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Avatar className="cursor-pointer">
+                  <AvatarImage src={user?.image ?? ''} alt={user?.name} />
+                  <AvatarFallback>
+                    {user?.name?.charAt(0).toUpperCase() ?? ''}
+                  </AvatarFallback>
+                </Avatar>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="mt-2 rounded-t-none">
+                <DropdownMenuLabel className="text-bold py-0">
+                  {user?.name}
+                </DropdownMenuLabel>
+                <DropdownMenuLabel className="py-0 text-gray-500">
+                  {user?.email}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="flex items-center gap-2"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {t('header.logout')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </>
       ) : (
         <div className="gap-4w-full mx-auto flex w-full border-spacing-7 items-center justify-between md:w-8/12">
@@ -90,32 +100,36 @@ function HeaderContent({
             <Logo />
           </Link>
           <div className="hidden items-center gap-4 md:flex">
+            <LanguageToggle />
             <Link href="/login">
-              <Button variant="outline">Login</Button>
+              <Button variant="outline">{t('header.login')}</Button>
             </Link>
             <Link href="/signup">
-              <Button>Signup</Button>
+              <Button>{t('header.signup')}</Button>
             </Link>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <MenuIcon className="md:hidden" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="mt-3 w-screen rounded-t-none">
-              <Link href="/login" className="flex items-center gap-2">
-                <DropdownMenuItem>
-                  <LogIn className="h-4 w-4" />
-                  Login
-                </DropdownMenuItem>
-              </Link>
-              <Link href="/signup" className="flex items-center gap-2">
-                <DropdownMenuItem>
-                  <UserPlus className="h-4 w-4" />
-                  Signup
-                </DropdownMenuItem>
-              </Link>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2 md:hidden">
+            <LanguageToggle />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <MenuIcon />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="mt-3 w-screen rounded-t-none">
+                <Link href="/login" className="flex items-center gap-2">
+                  <DropdownMenuItem>
+                    <LogIn className="h-4 w-4" />
+                    {t('header.login')}
+                  </DropdownMenuItem>
+                </Link>
+                <Link href="/signup" className="flex items-center gap-2">
+                  <DropdownMenuItem>
+                    <UserPlus className="h-4 w-4" />
+                    {t('header.signup')}
+                  </DropdownMenuItem>
+                </Link>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       )}
     </header>

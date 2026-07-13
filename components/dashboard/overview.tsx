@@ -2,6 +2,7 @@
 
 import { getOverviewData } from '@/app/dashboard/overview/actions'
 import { useCurrency } from '@/components/currency-provider'
+import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
 import {
   DollarSign,
@@ -20,6 +21,7 @@ import {
   CardTitle,
 } from '../ui/card'
 import { Skeleton } from '../ui/skeleton'
+import { useDashboardRefresh } from './refresh-provider'
 
 interface Account {
   id: string
@@ -59,6 +61,8 @@ type CombinedItem =
 
 export function Overview() {
   const currency = useCurrency()
+  const { t } = useLanguage()
+  const { refreshKey } = useDashboardRefresh()
   const [accounts, setAccounts] = useState<Account[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [transfers, setTransfers] = useState<Transfer[]>([])
@@ -79,9 +83,8 @@ export function Overview() {
     }
 
     loadData()
-  }, [])
+  }, [refreshKey])
 
-  // Combinar items cuando cambien transacciones, transferencias o cuentas
   useEffect(() => {
     const accountMap = new Map<string, string>()
     for (const account of accounts) {
@@ -113,7 +116,6 @@ export function Overview() {
     setRecentItems(combined)
   }, [transactions, transfers, accounts])
 
-  // Calcular balance total
   const getTotalBalance = () => {
     return accounts.reduce(
       (total, account) => total + (account.currentBalance || 0),
@@ -121,7 +123,6 @@ export function Overview() {
     )
   }
 
-  // Calcular estadísticas de ingresos y gastos del mes
   const getMonthlyStats = () => {
     const currentMonth = new Date().getMonth()
     const currentYear = new Date().getFullYear()
@@ -167,14 +168,13 @@ export function Overview() {
   return (
     <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
       <div className="w-full space-y-6">
-        <h1 className="text-2xl font-bold">Overview</h1>
+        <h1 className="text-2xl font-bold">{t('overview.title')}</h1>
 
-        {/* Balance Total y Estadísticas */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Total Balance
+                {t('overview.totalBalance')}
               </CardTitle>
               <DollarSign className="text-muted-foreground h-4 w-4" />
             </CardHeader>
@@ -183,8 +183,10 @@ export function Overview() {
                 ${formatMoney(getTotalBalance(), currency)}
               </div>
               <p className="text-muted-foreground text-xs">
-                Across {accounts.length} account
-                {accounts.length !== 1 ? 's' : ''}
+                {t('overview.across')} {accounts.length}{' '}
+                {accounts.length === 1
+                  ? t('overview.account')
+                  : t('overview.accountsPlural')}
               </p>
             </CardContent>
           </Card>
@@ -192,7 +194,7 @@ export function Overview() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Monthly Income
+                {t('overview.monthlyIncome')}
               </CardTitle>
               <TrendingUp className="h-4 w-4 text-green-600" />
             </CardHeader>
@@ -200,14 +202,16 @@ export function Overview() {
               <div className="text-2xl font-bold text-green-600">
                 +${formatMoney(monthlyStats.income, currency)}
               </div>
-              <p className="text-muted-foreground text-xs">This month</p>
+              <p className="text-muted-foreground text-xs">
+                {t('overview.thisMonth')}
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Monthly Expenses
+                {t('overview.monthlyExpenses')}
               </CardTitle>
               <TrendingDown className="h-4 w-4 text-red-600" />
             </CardHeader>
@@ -215,13 +219,17 @@ export function Overview() {
               <div className="text-2xl font-bold text-red-600">
                 -${formatMoney(monthlyStats.expenses, currency)}
               </div>
-              <p className="text-muted-foreground text-xs">This month</p>
+              <p className="text-muted-foreground text-xs">
+                {t('overview.thisMonth')}
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Net Income</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                {t('overview.netIncome')}
+              </CardTitle>
               <DollarSign className="text-muted-foreground h-4 w-4" />
             </CardHeader>
             <CardContent>
@@ -238,23 +246,24 @@ export function Overview() {
                   currency
                 )}
               </div>
-              <p className="text-muted-foreground text-xs">This month</p>
+              <p className="text-muted-foreground text-xs">
+                {t('overview.thisMonth')}
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Recent Transactions and Transfers */}
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
+            <CardTitle>{t('overview.recentActivity')}</CardTitle>
             <CardDescription>
-              Your latest 5 transactions and transfers
+              {t('overview.recentActivityDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {recentItems.length === 0 ? (
               <p className="text-muted-foreground py-8 text-center">
-                No transactions or transfers found. Create your first one!
+                {t('overview.noActivity')}
               </p>
             ) : (
               <div className="space-y-4">
@@ -287,7 +296,7 @@ export function Overview() {
                         <p className="font-medium">
                           {item.itemType === 'transaction'
                             ? item.description
-                            : item.note || 'Transfer'}
+                            : item.note || t('overview.transfer')}
                         </p>
                         <p className="text-muted-foreground text-sm">
                           {item.itemType === 'transaction' ? (
@@ -332,16 +341,17 @@ export function Overview() {
           </CardContent>
         </Card>
 
-        {/* Account Summary */}
         <Card>
           <CardHeader>
-            <CardTitle>Account Summary</CardTitle>
-            <CardDescription>Overview of all your accounts</CardDescription>
+            <CardTitle>{t('overview.accountSummary')}</CardTitle>
+            <CardDescription>
+              {t('overview.accountSummaryDesc')}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {accounts.length === 0 ? (
               <p className="text-muted-foreground py-8 text-center">
-                No accounts found. Create your first account!
+                {t('overview.noAccounts')}
               </p>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -367,7 +377,7 @@ export function Overview() {
                       </div>
                       <div>
                         <p className="text-muted-foreground mb-1 text-sm">
-                          Balance
+                          {t('overview.balance')}
                         </p>
                         <p className="text-xl font-bold">
                           $

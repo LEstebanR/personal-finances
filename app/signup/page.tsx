@@ -1,5 +1,6 @@
 'use client'
 
+import { useLanguage } from '@/components/language-provider'
 import {
   Card,
   CardContent,
@@ -12,6 +13,8 @@ import { Logo } from '@/components/ui/logo'
 import Link from 'next/link'
 
 export default function Signup() {
+  const { t } = useLanguage()
+
   return (
     <div className="mx-auto mt-24 flex w-full flex-col items-center gap-4 px-4">
       <Link href="/" className="cursor-pointer">
@@ -20,10 +23,10 @@ export default function Signup() {
       <Card className="flex w-full flex-col md:w-4/12">
         <CardHeader>
           <CardTitle className="text-center text-2xl font-bold">
-            Create an account
+            {t('auth.signupTitle')}
           </CardTitle>
           <CardDescription className="text-muted-foreground text-center text-lg">
-            Sign up with Google to get started
+            {t('auth.signupSubtitle')}
           </CardDescription>
           <CardContent className="mt-4">
             <GoogleSignInButton />
