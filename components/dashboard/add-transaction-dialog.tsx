@@ -10,7 +10,7 @@ import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney, parseCurrencyInput } from '@/lib/currency'
 import { Loader } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '../ui/button'
@@ -87,6 +87,17 @@ export function AddTransactionDialog({
     }
     setLoadingAccounts(false)
   }
+
+  useEffect(() => {
+    if (isOpen) {
+      loadAvailableAccounts()
+    } else {
+      setCategoryId('')
+      setTransactionType('')
+      setSourceType('account')
+      setSourceId('')
+    }
+  }, [isOpen])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -166,20 +177,7 @@ export function AddTransactionDialog({
   }
 
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={(open) => {
-        setIsOpen(open)
-        if (open) {
-          loadAvailableAccounts()
-        } else {
-          setCategoryId('')
-          setTransactionType('')
-          setSourceType('account')
-          setSourceId('')
-        }
-      }}
-    >
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent>
         <DialogHeader>
