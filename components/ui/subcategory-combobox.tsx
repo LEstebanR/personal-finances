@@ -1,11 +1,10 @@
 'use client'
 
-import {
-  findOrCreateSubcategory,
-  getSubcategories,
-} from '@/app/dashboard/categories/actions'
+import { findOrCreateSubcategory } from '@/app/dashboard/categories/actions'
 import { useLanguage } from '@/components/language-provider'
+import { useSubcategories } from '@/lib/queries'
 import { cn } from '@/lib/utils'
+import { useQueryClient } from '@tanstack/react-query'
 import { Check, ChevronsUpDown, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -21,11 +20,6 @@ import {
 } from './command'
 import { Popover, PopoverContent, PopoverTrigger } from './popover'
 
-interface Subcategory {
-  id: string
-  name: string
-}
-
 export function SubcategoryCombobox({
   name,
   categoryId,
@@ -36,25 +30,18 @@ export function SubcategoryCombobox({
   defaultValue?: string
 }) {
   const { t } = useLanguage()
+  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const [subcategories, setSubcategories] = useState<Subcategory[]>([])
+  const { data: subcategories = [], error } = useSubcategories(categoryId)
   const [value, setValue] = useState(defaultValue ?? '')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!categoryId) {
-      setSubcategories([])
-      return
-    }
-    getSubcategories(categoryId)
-      .then(setSubcategories)
-      .catch((error) => {
-        console.error('Error loading subcategories:', error)
-        toast.error(t('transactions.loadSubcategoriesFailed'))
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryId])
+    if (!error) return
+    console.error('Error loading subcategories:', error)
+    toast.error(t('transactions.loadSubcategoriesFailed'))
+  }, [error, t])
 
   const selected = subcategories.find((s) => s.id === value)
   const filtered = subcategories.filter((s) =>
@@ -77,11 +64,9 @@ export function SubcategoryCombobox({
         categoryId,
         search.trim()
       )
-      setSubcategories((prev) =>
-        prev.some((s) => s.id === subcategory.id)
-          ? prev
-          : [...prev, subcategory].sort((a, b) => a.name.localeCompare(b.name))
-      )
+      queryClient.invalidateQueries({
+        queryKey: ['subcategories', categoryId],
+      })
       handleSelect(subcategory.id)
     } catch (error) {
       console.error('Error creating subcategory:', error)

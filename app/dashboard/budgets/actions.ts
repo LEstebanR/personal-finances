@@ -4,45 +4,48 @@ import { parseCurrencyInput } from '@/lib/currency'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
 
-function previousMonth(month: number, year: number) {
-  return month === 1
-    ? { month: 12, year: year - 1 }
-    : { month: month - 1, year }
+// Budget item dates are stored as UTC midnight (date-only values). Building
+// these bounds with the local Date constructor uses the server process's
+// timezone, which can shift the boundary by several hours and misfile
+// items dated on the 1st of the month into the previous month. Date.UTC
+// keeps the range anchored the same way the stored dates are.
+function monthRange(month: number, year: number) {
+  return {
+    gte: new Date(Date.UTC(year, month - 1, 1)),
+    lt: new Date(
+      Date.UTC(month === 12 ? year + 1 : year, month === 12 ? 0 : month, 1)
+    ),
+  }
 }
 
 export async function getBudgetOverview(month: number, year: number) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const prev = previousMonth(month, year)
+  const range = monthRange(month, year)
 
-  const [categories, budgets, previousBudgets, expenses] = await Promise.all([
+  const [categories, budgetItems, expenses] = await Promise.all([
     prisma.category.findMany({
       where: { userId: session.user.id, type: 'expense' },
       orderBy: { name: 'asc' },
     }),
-    prisma.budget.findMany({
-      where: { userId: session.user.id, month, year },
-    }),
-    prisma.budget.findMany({
-      where: { userId: session.user.id, month: prev.month, year: prev.year },
+    prisma.budgetItem.findMany({
+      where: { userId: session.user.id, date: range },
+      select: { categoryId: true, amount: true },
     }),
     prisma.transaction.findMany({
-      where: {
-        userId: session.user.id,
-        type: 'expense',
-        date: {
-          gte: new Date(year, month - 1, 1),
-          lt: new Date(
-            month === 12 ? year + 1 : year,
-            month === 12 ? 0 : month,
-            1
-          ),
-        },
-      },
+      where: { userId: session.user.id, type: 'expense', date: range },
       select: { categoryId: true, amount: true },
     }),
   ])
+
+  const budgetedByCategory = new Map<string, number>()
+  for (const item of budgetItems) {
+    budgetedByCategory.set(
+      item.categoryId,
+      (budgetedByCategory.get(item.categoryId) ?? 0) + Number(item.amount)
+    )
+  }
 
   const spentByCategory = new Map<string, number>()
   for (const expense of expenses) {
@@ -52,65 +55,103 @@ export async function getBudgetOverview(month: number, year: number) {
     )
   }
 
-  const budgetByCategory = new Map(budgets.map((b) => [b.categoryId, b]))
-  const previousBudgetByCategory = new Map(
-    previousBudgets.map((b) => [b.categoryId, Number(b.amount)])
-  )
-
-  return categories.map((category) => {
-    const budget = budgetByCategory.get(category.id)
-    return {
+  return categories
+    .map((category) => ({
       categoryId: category.id,
       categoryName: category.name,
-      budgetId: budget?.id ?? null,
-      amount: budget ? Number(budget.amount) : null,
-      suggestedAmount: previousBudgetByCategory.get(category.id) ?? null,
+      amount: budgetedByCategory.get(category.id) ?? null,
+      suggestedAmount: null as number | null,
       spent: spentByCategory.get(category.id) ?? 0,
-    }
-  })
+    }))
+    .filter((item) => item.amount !== null || item.spent > 0)
 }
 
-export async function setBudget(
-  categoryId: string,
-  month: number,
-  year: number,
-  amountInput: FormDataEntryValue | string
-) {
+export async function getBudgetItems(month: number, year: number) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const amount = parseCurrencyInput(amountInput as FormDataEntryValue)
-  if (Number.isNaN(amount) || amount < 0) {
-    throw new Error('Invalid budget amount')
+  const items = await prisma.budgetItem.findMany({
+    where: { userId: session.user.id, date: monthRange(month, year) },
+    include: { category: true, subcategory: true },
+    orderBy: { date: 'asc' },
+  })
+
+  return items.map(({ category, subcategory, ...item }) => ({
+    ...item,
+    amount: Number(item.amount),
+    categoryName: category.name,
+    subcategoryName: subcategory?.name ?? null,
+  }))
+}
+
+export async function createBudgetItem(formData: FormData) {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  const categoryId = formData.get('categoryId') as string
+  const subcategoryId = (formData.get('subcategoryId') as string) || null
+  const amount = parseCurrencyInput(formData.get('amount'))
+  const description = formData.get('description') as string
+  const date = new Date(formData.get('date') as string)
+
+  if (Number.isNaN(amount) || amount <= 0) {
+    throw new Error('Invalid amount')
   }
 
   await prisma.category.findFirstOrThrow({
     where: { id: categoryId, userId: session.user.id },
   })
 
-  const budget = await prisma.budget.upsert({
-    where: {
-      userId_categoryId_month_year: {
-        userId: session.user.id,
-        categoryId,
-        month,
-        year,
-      },
+  const item = await prisma.budgetItem.create({
+    data: {
+      userId: session.user.id,
+      categoryId,
+      subcategoryId,
+      date,
+      amount,
+      description,
     },
-    create: { userId: session.user.id, categoryId, month, year, amount },
-    update: { amount },
   })
 
-  return { ...budget, amount: Number(budget.amount) }
+  return { ...item, amount: Number(item.amount) }
 }
 
-export async function deleteBudget(id: string) {
+export async function updateBudgetItem(id: string, formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  await prisma.budget.findFirstOrThrow({
+  const categoryId = formData.get('categoryId') as string
+  const subcategoryId = (formData.get('subcategoryId') as string) || null
+  const amount = parseCurrencyInput(formData.get('amount'))
+  const description = formData.get('description') as string
+  const date = new Date(formData.get('date') as string)
+
+  if (Number.isNaN(amount) || amount <= 0) {
+    throw new Error('Invalid amount')
+  }
+
+  await prisma.budgetItem.findFirstOrThrow({
+    where: { id, userId: session.user.id },
+  })
+  await prisma.category.findFirstOrThrow({
+    where: { id: categoryId, userId: session.user.id },
+  })
+
+  const item = await prisma.budgetItem.update({
+    where: { id },
+    data: { categoryId, subcategoryId, date, amount, description },
+  })
+
+  return { ...item, amount: Number(item.amount) }
+}
+
+export async function deleteBudgetItem(id: string) {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  await prisma.budgetItem.findFirstOrThrow({
     where: { id, userId: session.user.id },
   })
 
-  await prisma.budget.delete({ where: { id } })
+  await prisma.budgetItem.delete({ where: { id } })
 }

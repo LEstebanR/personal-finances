@@ -30,15 +30,10 @@ const DEFAULT_INCOME_CATEGORIES = [
   'Otros ingresos',
 ]
 
-async function ensureDefaultCategories(userId: string) {
-  const existing = await prisma.category.findMany({
-    where: { userId },
-    select: { name: true, type: true },
-  })
+function findMissingDefaults(existing: { name: string; type: string }[]) {
   const existingKeys = new Set(
     existing.map((c) => `${c.type}:${c.name.trim().toLowerCase()}`)
   )
-
   const defaults = [
     ...DEFAULT_EXPENSE_CATEGORIES.map((name) => ({
       name,
@@ -49,29 +44,46 @@ async function ensureDefaultCategories(userId: string) {
       type: 'income' as const,
     })),
   ]
-  const missing = defaults.filter(
+  return defaults.filter(
     ({ name, type }) => !existingKeys.has(`${type}:${name.toLowerCase()}`)
   )
-  if (missing.length === 0) return
-
-  await prisma.category.createMany({
-    data: missing.map(({ name, type }) => ({
-      userId,
-      name,
-      type,
-      isDefault: true,
-    })),
-  })
 }
 
 export async function getCategories(type?: 'income' | 'expense') {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  await ensureDefaultCategories(session.user.id)
+  const where = { userId: session.user.id, ...(type ? { type } : {}) }
+  const categories = await prisma.category.findMany({
+    where,
+    include: { subcategories: { orderBy: { name: 'asc' } } },
+    orderBy: { name: 'asc' },
+  })
+
+  // Defaults are seeded once per user; checking against the type-filtered
+  // list would false-positive on "missing" categories of the other type, so
+  // check against the user's full category list instead.
+  const allCategories =
+    type === undefined
+      ? categories
+      : await prisma.category.findMany({
+          where: { userId: session.user.id },
+          select: { name: true, type: true },
+        })
+  const missing = findMissingDefaults(allCategories)
+  if (missing.length === 0) return categories
+
+  await prisma.category.createMany({
+    data: missing.map(({ name, type: missingType }) => ({
+      userId: session.user.id,
+      name,
+      type: missingType,
+      isDefault: true,
+    })),
+  })
 
   return prisma.category.findMany({
-    where: { userId: session.user.id, ...(type ? { type } : {}) },
+    where,
     include: { subcategories: { orderBy: { name: 'asc' } } },
     orderBy: { name: 'asc' },
   })

@@ -62,26 +62,28 @@ model Category {
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   subcategories Subcategory[]
   transactions  Transaction[]
-  budgets       Budget[]
+  budgetItems   BudgetItem[]
 
   @@index([userId])
 }
 
-model Budget {
-  id         String   @id @default(uuid())
-  userId     String
-  categoryId String
-  month      Int
-  year       Int
-  amount     Decimal  @db.Decimal(15, 2)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+model BudgetItem {
+  id            String       @id @default(uuid())
+  userId        String
+  categoryId    String
+  subcategoryId String?
+  date          DateTime
+  amount        Decimal      @db.Decimal(15, 2)
+  description   String
+  createdAt     DateTime     @default(now())
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category      Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
 
-  @@unique([userId, categoryId, month, year])
   @@index([userId])
   @@index([categoryId])
+  @@index([subcategoryId])
+  @@index([date])
 }
 
 model Subcategory {
@@ -92,6 +94,7 @@ model Subcategory {
   createdAt    DateTime      @default(now())
   category     Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  budgetItems  BudgetItem[]
 
   @@index([categoryId])
   @@index([userId])
@@ -128,7 +131,7 @@ model User {
   accounts      Account[]
   categories    Category[]
   debts         Debt[]
-  budgets       Budget[]
+  budgetItems   BudgetItem[]
 
   @@unique([email])
   @@map("user")

@@ -1,11 +1,10 @@
 'use client'
 
-import {
-  createCategory,
-  getCategories,
-} from '@/app/dashboard/categories/actions'
+import { createCategory } from '@/app/dashboard/categories/actions'
 import { useLanguage } from '@/components/language-provider'
+import { useCategories } from '@/lib/queries'
 import { cn } from '@/lib/utils'
+import { useQueryClient } from '@tanstack/react-query'
 import { Check, ChevronsUpDown, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -21,11 +20,6 @@ import {
 } from './command'
 import { Popover, PopoverContent, PopoverTrigger } from './popover'
 
-interface Category {
-  id: string
-  name: string
-}
-
 export function CategoryCombobox({
   name,
   type,
@@ -38,21 +32,18 @@ export function CategoryCombobox({
   onChange?: (categoryId: string) => void
 }) {
   const { t } = useLanguage()
+  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
-  const [categories, setCategories] = useState<Category[]>([])
+  const { data: categories = [], error } = useCategories(type)
   const [value, setValue] = useState(defaultValue ?? '')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    getCategories(type)
-      .then(setCategories)
-      .catch((error) => {
-        console.error('Error loading categories:', error)
-        toast.error(t('transactions.loadCategoriesFailed'))
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type])
+    if (!error) return
+    console.error('Error loading categories:', error)
+    toast.error(t('transactions.loadCategoriesFailed'))
+  }, [error, t])
 
   const selectedCategory = categories.find((c) => c.id === value)
   const filtered = categories.filter((c) =>
@@ -73,11 +64,7 @@ export function CategoryCombobox({
     setLoading(true)
     try {
       const category = await createCategory(search.trim(), type)
-      setCategories((prev) =>
-        prev.some((c) => c.id === category.id)
-          ? prev
-          : [...prev, category].sort((a, b) => a.name.localeCompare(b.name))
-      )
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
       handleSelect(category.id)
     } catch (error) {
       console.error('Error creating category:', error)

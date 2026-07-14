@@ -170,7 +170,7 @@ export const translations = {
         'Failed to create subcategory. Please try again.',
       loadSubcategoriesFailed:
         'Failed to load subcategories. Please try again.',
-      description: 'Description',
+      description: 'Description (Optional)',
       creatingTransaction: 'Creating Transaction...',
       table: {
         description: 'Description',
@@ -278,15 +278,26 @@ export const translations = {
     },
     budgets: {
       title: 'Budget',
-      save: 'Save',
-      saveSuccess: 'Budget saved!',
-      saveFailed: 'Failed to save. Please try again.',
-      suggested: 'Suggested',
+      cashFlow: 'Planned Expenses',
+      cashFlowDesc:
+        'Add expenses for specific days to build this month’s budget.',
+      addItem: 'Add Planned Expense',
+      editItem: 'Edit Planned Expense',
+      addItemDesc: 'Add an expense you expect on a specific day this month.',
+      descriptionOptional: 'Description (Optional)',
+      creatingItem: 'Adding...',
+      savingChanges: 'Saving...',
+      saveChanges: 'Save Changes',
+      itemCreated: 'Planned expense added!',
+      itemUpdated: 'Planned expense updated!',
+      itemSaveFailed: 'Failed to save. Please try again.',
+      itemDeleted: 'Planned expense removed!',
+      itemDeleteFailed: 'Failed to remove. Please try again.',
+      noItemsYet:
+        'No planned expenses yet. Add one for a specific day to start building this month’s budget.',
+      byCategory: 'Budget by Category',
       spentOfBudget: '${spent} of ${budget}',
-      totalSpentOfBudget: 'Total: ${spent} of ${budget} budgeted',
-      noCategoriesYet: 'No Expense Categories Yet',
-      noCategoriesYetDesc:
-        'Create expense categories first (in Settings) to start setting a monthly budget for each one.',
+      totalSpentOfBudget: 'Total: ${spent} of ${budget} planned',
       months: {
         january: 'January',
         february: 'February',
@@ -502,7 +513,7 @@ export const translations = {
         'No se pudo crear la subcategoría. Intentá de nuevo.',
       loadSubcategoriesFailed:
         'No se pudieron cargar las subcategorías. Intentá de nuevo.',
-      description: 'Descripción',
+      description: 'Descripción (Opcional)',
       creatingTransaction: 'Creando transacción...',
       table: {
         description: 'Descripción',
@@ -590,15 +601,27 @@ export const translations = {
     },
     budgets: {
       title: 'Presupuesto',
-      save: 'Guardar',
-      saveSuccess: '¡Presupuesto guardado!',
-      saveFailed: 'No se pudo guardar. Intentá de nuevo.',
-      suggested: 'Sugerido',
+      cashFlow: 'Gastos Planeados',
+      cashFlowDesc:
+        'Agregá gastos en días específicos para armar el presupuesto de este mes.',
+      addItem: 'Agregar Gasto Planeado',
+      editItem: 'Editar Gasto Planeado',
+      addItemDesc:
+        'Agregá un gasto que esperás para un día específico de este mes.',
+      descriptionOptional: 'Descripción (Opcional)',
+      creatingItem: 'Agregando...',
+      savingChanges: 'Guardando...',
+      saveChanges: 'Guardar Cambios',
+      itemCreated: '¡Gasto planeado agregado!',
+      itemUpdated: '¡Gasto planeado actualizado!',
+      itemSaveFailed: 'No se pudo guardar. Intentá de nuevo.',
+      itemDeleted: '¡Gasto planeado eliminado!',
+      itemDeleteFailed: 'No se pudo eliminar. Intentá de nuevo.',
+      noItemsYet:
+        'Todavía no hay gastos planeados. Agregá uno para un día específico para empezar a armar el presupuesto de este mes.',
+      byCategory: 'Presupuesto por Categoría',
       spentOfBudget: '${spent} de ${budget}',
-      totalSpentOfBudget: 'Total: ${spent} de ${budget} presupuestados',
-      noCategoriesYet: 'Todavía no hay categorías de gasto',
-      noCategoriesYetDesc:
-        'Creá categorías de gasto primero (en Configuración) para empezar a definir un presupuesto mensual para cada una.',
+      totalSpentOfBudget: 'Total: ${spent} de ${budget} planeados',
       months: {
         january: 'Enero',
         february: 'Febrero',

@@ -1,12 +1,12 @@
 'use client'
 
-import { getAccounts } from '@/app/dashboard/accounts/actions'
-import { getDebts } from '@/app/dashboard/debts/actions'
 import {
   updateTransaction,
   updateTransfer,
 } from '@/app/dashboard/transactions/actions'
 import { useLanguage } from '@/components/language-provider'
+import { useAccounts, useDebts } from '@/lib/queries'
+import { toLocalMidnight } from '@/lib/utils'
 import { Loader } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -29,19 +29,6 @@ import {
 import { SubcategoryCombobox } from '../ui/subcategory-combobox'
 import { Textarea } from '../ui/textarea'
 import { useDashboardRefresh } from './refresh-provider'
-
-interface Account {
-  id: string
-  name: string
-  type: string
-  isArchived: boolean
-}
-
-interface CreditCardDebt {
-  id: string
-  name: string
-  type: string
-}
 
 export interface EditableTransaction {
   itemType: 'transaction'
@@ -80,21 +67,13 @@ export function EditTransactionDialog({
   const { t } = useLanguage()
   const { triggerRefresh } = useDashboardRefresh()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [availableAccounts, setAvailableAccounts] = useState<Account[]>([])
-  const [availableDebts, setAvailableDebts] = useState<CreditCardDebt[]>([])
+  const { data: rawAccounts = [] } = useAccounts()
+  const { data: rawDebts = [] } = useDebts()
+  const availableAccounts = rawAccounts.filter((a) => !a.isArchived)
+  const availableDebts = rawDebts.filter((d) => d.type === 'credit_card')
   const [categoryId, setCategoryId] = useState('')
   const [sourceType, setSourceType] = useState<'account' | 'debt'>('account')
   const [sourceId, setSourceId] = useState('')
-
-  useEffect(() => {
-    if (!open) return
-    Promise.all([getAccounts(), getDebts()])
-      .then(([accounts, debts]) => {
-        setAvailableAccounts(accounts.filter((a) => !a.isArchived))
-        setAvailableDebts(debts.filter((d) => d.type === 'credit_card'))
-      })
-      .catch((error) => console.error('Error loading accounts:', error))
-  }, [open])
 
   useEffect(() => {
     setCategoryId(item?.itemType === 'transaction' ? item.categoryId : '')
@@ -263,7 +242,7 @@ export function EditTransactionDialog({
           </div>
           <div className="flex flex-col gap-1">
             <Label>{t('transactions.date')}</Label>
-            <DatePicker name="date" defaultValue={new Date(item.date)} />
+            <DatePicker name="date" defaultValue={toLocalMidnight(item.date)} />
           </div>
           {item.itemType === 'transaction' && (
             <>
@@ -291,7 +270,6 @@ export function EditTransactionDialog({
             <Textarea
               name="description"
               className="resize-none"
-              required
               defaultValue={
                 item.itemType === 'transfer'
                   ? (item.note ?? '')

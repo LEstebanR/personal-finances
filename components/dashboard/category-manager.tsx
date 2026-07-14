@@ -5,13 +5,14 @@ import {
   deleteCategory,
   deleteSubcategory,
   findOrCreateSubcategory,
-  getCategories,
   updateCategory,
   updateSubcategory,
 } from '@/app/dashboard/categories/actions'
 import { useLanguage } from '@/components/language-provider'
+import { useCategories } from '@/lib/queries'
+import { useQueryClient } from '@tanstack/react-query'
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 
 import {
@@ -330,25 +331,13 @@ function CategoryRow({
 
 export function CategoryManager({ type }: { type: 'income' | 'expense' }) {
   const { t } = useLanguage()
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const { data: categories = [], isLoading: loading } = useCategories(type)
   const [newCategory, setNewCategory] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const load = async () => {
-    try {
-      const data = await getCategories(type)
-      setCategories(data)
-    } catch (error) {
-      console.error('Error loading categories:', error)
-    }
-    setLoading(false)
-  }
-
-  useEffect(() => {
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type])
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ['categories'] })
 
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -357,7 +346,7 @@ export function CategoryManager({ type }: { type: 'income' | 'expense' }) {
     try {
       await createCategory(newCategory.trim(), type)
       setNewCategory('')
-      await load()
+      invalidate()
     } catch (error) {
       console.error('Error creating category:', error)
       toast.error(t('settings.updateFailed'))
@@ -374,7 +363,11 @@ export function CategoryManager({ type }: { type: 'income' | 'expense' }) {
   return (
     <div className="space-y-3">
       {categories.map((category) => (
-        <CategoryRow key={category.id} category={category} onChanged={load} />
+        <CategoryRow
+          key={category.id}
+          category={category}
+          onChanged={invalidate}
+        />
       ))}
 
       <form className="flex items-center gap-2" onSubmit={handleAddCategory}>

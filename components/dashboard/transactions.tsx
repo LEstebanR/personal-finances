@@ -1,15 +1,11 @@
 'use client'
 
-import { getAccounts } from '@/app/dashboard/accounts/actions'
-import {
-  getTransactions,
-  getTransfers,
-} from '@/app/dashboard/transactions/actions'
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
+import { useAccounts, useTransactions, useTransfers } from '@/lib/queries'
 import { CreditCard, Loader, PlusIcon } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { Button } from '../ui/button'
 import {
@@ -26,7 +22,6 @@ import {
   EditTransactionDialog,
   type EditableItem,
 } from './edit-transaction-dialog'
-import { useDashboardRefresh } from './refresh-provider'
 import { TransactionRowActions } from './transaction-row-actions'
 
 interface Transaction {
@@ -53,11 +48,6 @@ interface Transfer {
   date: Date
   note: string | null
   createdAt: Date
-}
-
-interface AccountName {
-  id: string
-  name: string
 }
 
 type CombinedItem =
@@ -97,35 +87,17 @@ function toEditableItem(item: CombinedItem): EditableItem {
 export function Transactions() {
   const currency = useCurrency()
   const { t } = useLanguage()
-  const { refreshKey } = useDashboardRefresh()
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [transfers, setTransfers] = useState<Transfer[]>([])
-  const [accounts, setAccounts] = useState<AccountName[]>([])
-  const [combinedItems, setCombinedItems] = useState<CombinedItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: transactions = [], isLoading: loadingTransactions } =
+    useTransactions()
+  const { data: transfers = [], isLoading: loadingTransfers } = useTransfers()
+  const { data: accounts = [], isLoading: loadingAccounts } = useAccounts()
+  const loading = loadingTransactions || loadingTransfers || loadingAccounts
   const [currentPage, setCurrentPage] = useState(1)
   const [transactionsPerPage] = useState(10)
   const [editingItem, setEditingItem] = useState<EditableItem | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [accountsData, transactionsData, transfersData] =
-          await Promise.all([getAccounts(), getTransactions(), getTransfers()])
-        setAccounts(accountsData)
-        setTransactions(transactionsData)
-        setTransfers(transfersData)
-      } catch (error) {
-        console.error('Error loading transactions/transfers:', error)
-      }
-      setLoading(false)
-    }
-
-    load()
-  }, [refreshKey])
-
-  useEffect(() => {
+  const combinedItems = useMemo(() => {
     const accountMap = new Map<string, string>()
     for (const account of accounts) {
       accountMap.set(account.id, account.name)
@@ -143,13 +115,11 @@ export function Transactions() {
       toAccountName: accountMap.get(tItem.toAccountId),
     }))
 
-    const combined = [...transactionItems, ...transferItems].sort(
+    return [...transactionItems, ...transferItems].sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
-
-    setCombinedItems(combined)
-  }, [transactions, transfers, accounts])
+  }, [accounts, transactions, transfers])
 
   const filterItemsByType = (
     type: 'all' | 'income' | 'expense' | 'transfer'
@@ -284,7 +254,7 @@ export function Transactions() {
                               <TableRow key={item.id}>
                                 <TableCell className="font-medium">
                                   {item.itemType === 'transaction'
-                                    ? item.description
+                                    ? item.description || item.categoryName
                                     : item.note || t('overview.transfer')}
                                 </TableCell>
                                 <TableCell>
@@ -339,7 +309,10 @@ export function Transactions() {
                                   ${formatMoney(Number(item.amount), currency)}
                                 </TableCell>
                                 <TableCell>
-                                  {new Date(item.date).toLocaleDateString()}
+                                  {new Date(item.date).toLocaleDateString(
+                                    undefined,
+                                    { timeZone: 'UTC' }
+                                  )}
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <TransactionRowActions

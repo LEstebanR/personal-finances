@@ -1,7 +1,5 @@
 'use client'
 
-import { getAccounts } from '@/app/dashboard/accounts/actions'
-import { getDebts } from '@/app/dashboard/debts/actions'
 import {
   createTransaction,
   createTransfer,
@@ -9,6 +7,7 @@ import {
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney, parseCurrencyInput } from '@/lib/currency'
+import { useAccounts, useDebts } from '@/lib/queries'
 import { Loader } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -39,19 +38,6 @@ import { SubcategoryCombobox } from '../ui/subcategory-combobox'
 import { Textarea } from '../ui/textarea'
 import { useDashboardRefresh } from './refresh-provider'
 
-interface Account {
-  id: string
-  name: string
-  type: string
-  isArchived: boolean
-}
-
-interface CreditCardDebt {
-  id: string
-  name: string
-  type: string
-}
-
 export function AddTransactionDialog({
   trigger,
   open: controlledOpen,
@@ -68,30 +54,17 @@ export function AddTransactionDialog({
   const isOpen = controlledOpen ?? internalOpen
   const setIsOpen = setControlledOpen ?? setInternalOpen
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [availableAccounts, setAvailableAccounts] = useState<Account[]>([])
-  const [availableDebts, setAvailableDebts] = useState<CreditCardDebt[]>([])
-  const [loadingAccounts, setLoadingAccounts] = useState(false)
+  const { data: rawAccounts = [], isLoading: loadingAccounts } = useAccounts()
+  const { data: rawDebts = [] } = useDebts()
+  const availableAccounts = rawAccounts.filter((account) => !account.isArchived)
+  const availableDebts = rawDebts.filter((debt) => debt.type === 'credit_card')
   const [transactionType, setTransactionType] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [sourceType, setSourceType] = useState<'account' | 'debt'>('account')
   const [sourceId, setSourceId] = useState('')
 
-  const loadAvailableAccounts = async () => {
-    setLoadingAccounts(true)
-    try {
-      const [accounts, debts] = await Promise.all([getAccounts(), getDebts()])
-      setAvailableAccounts(accounts.filter((account) => !account.isArchived))
-      setAvailableDebts(debts.filter((debt) => debt.type === 'credit_card'))
-    } catch (error) {
-      console.error('Error loading available accounts:', error)
-    }
-    setLoadingAccounts(false)
-  }
-
   useEffect(() => {
-    if (isOpen) {
-      loadAvailableAccounts()
-    } else {
+    if (!isOpen) {
       setCategoryId('')
       setTransactionType('')
       setSourceType('account')
@@ -351,7 +324,7 @@ export function AddTransactionDialog({
           )}
           <div className="flex flex-col gap-1">
             <Label>{t('transactions.description')}</Label>
-            <Textarea name="description" className="resize-none" required />
+            <Textarea name="description" className="resize-none" />
           </div>
           <Button className="w-full" type="submit" disabled={isSubmitting}>
             {isSubmitting ? (

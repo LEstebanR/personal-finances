@@ -1,18 +1,17 @@
 'use client'
 
-import { getDebts } from '@/app/dashboard/debts/actions'
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
+import { useDebts } from '@/lib/queries'
 import { CreditCard, Loader, PlusIcon, Wallet } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { AddDebtDialog } from './add-debt-dialog'
 import { AddDebtPaymentDialog } from './add-debt-payment-dialog'
 import { EditDebtDialog } from './edit-debt-dialog'
-import { useDashboardRefresh } from './refresh-provider'
 
 interface Debt {
   id: string
@@ -29,17 +28,8 @@ interface Debt {
 export function Debts() {
   const currency = useCurrency()
   const { t } = useLanguage()
-  const { refreshKey } = useDashboardRefresh()
-  const [debts, setDebts] = useState<Debt[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: debts = [], isLoading: loading } = useDebts()
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null)
-
-  useEffect(() => {
-    getDebts()
-      .then(setDebts)
-      .catch((error) => console.error('Error loading debts:', error))
-      .finally(() => setLoading(false))
-  }, [refreshKey])
 
   const totalRemaining = debts.reduce(
     (total, debt) => total + debt.remainingBalance,

@@ -1,10 +1,10 @@
 'use client'
 
-import { getAccounts } from '@/app/dashboard/accounts/actions'
 import { createDebtPayment } from '@/app/dashboard/debts/actions'
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney, parseCurrencyInput } from '@/lib/currency'
+import { useAccounts } from '@/lib/queries'
 import { Loader } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -31,13 +31,6 @@ import {
 import { Textarea } from '../ui/textarea'
 import { useDashboardRefresh } from './refresh-provider'
 
-interface Account {
-  id: string
-  name: string
-  type: string
-  isArchived: boolean
-}
-
 interface Debt {
   id: string
   name: string
@@ -56,19 +49,8 @@ export function AddDebtPaymentDialog({
   const { triggerRefresh } = useDashboardRefresh()
   const [isOpen, setIsOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [availableAccounts, setAvailableAccounts] = useState<Account[]>([])
-  const [loadingAccounts, setLoadingAccounts] = useState(false)
-
-  const loadAvailableAccounts = async () => {
-    setLoadingAccounts(true)
-    try {
-      const accounts = await getAccounts()
-      setAvailableAccounts(accounts.filter((account) => !account.isArchived))
-    } catch (error) {
-      console.error('Error loading available accounts:', error)
-    }
-    setLoadingAccounts(false)
-  }
+  const { data: rawAccounts = [], isLoading: loadingAccounts } = useAccounts()
+  const availableAccounts = rawAccounts.filter((account) => !account.isArchived)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -95,13 +77,7 @@ export function AddDebtPaymentDialog({
   }
 
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={(open) => {
-        setIsOpen(open)
-        if (open) loadAvailableAccounts()
-      }}
-    >
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>

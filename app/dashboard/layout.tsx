@@ -1,6 +1,6 @@
 import { CurrencyProvider } from '@/components/currency-provider'
 import { QuickAddFab } from '@/components/dashboard/quick-add-fab'
-import { DashboardRefreshProvider } from '@/components/dashboard/refresh-provider'
+import { QueryProvider } from '@/components/query-provider'
 import { AppSidebar } from '@/components/ui/app-sidebar'
 import { Footer } from '@/components/ui/footer'
 import { Header } from '@/components/ui/header'
@@ -30,10 +30,10 @@ export default async function AuthenticatedLayout({
         <main className="flex min-h-svh w-full flex-col">
           <Header user={session?.user} />
           <CurrencyProvider currency={currency ?? 'usd'}>
-            <DashboardRefreshProvider>
+            <QueryProvider>
               <div className="flex-1">{children}</div>
               <QuickAddFab />
-            </DashboardRefreshProvider>
+            </QueryProvider>
           </CurrencyProvider>
           <Footer />
         </main>

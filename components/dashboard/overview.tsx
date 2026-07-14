@@ -1,10 +1,9 @@
 'use client'
 
-import { getBudgetOverview } from '@/app/dashboard/budgets/actions'
-import { getOverviewData } from '@/app/dashboard/overview/actions'
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
+import { useBudgetOverview, useOverviewData } from '@/lib/queries'
 import {
   DollarSign,
   Landmark,
@@ -13,7 +12,7 @@ import {
   TrendingUp,
   Wallet,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
 import { Cell, Pie, PieChart } from 'recharts'
 
 import {
@@ -30,15 +29,6 @@ import {
   ChartTooltipContent,
 } from '../ui/chart'
 import { Skeleton } from '../ui/skeleton'
-import { useDashboardRefresh } from './refresh-provider'
-
-interface BudgetItem {
-  categoryId: string
-  categoryName: string
-  amount: number | null
-  suggestedAmount: number | null
-  spent: number
-}
 
 const CATEGORY_COLORS = [
   'var(--chart-1)',
@@ -47,13 +37,6 @@ const CATEGORY_COLORS = [
   'var(--chart-4)',
   'var(--chart-5)',
 ]
-
-interface Account {
-  id: string
-  name: string
-  type: string
-  currentBalance: number
-}
 
 interface Transaction {
   id: string
@@ -86,41 +69,21 @@ type CombinedItem =
       toAccountName?: string
     })
 
+const EMPTY_ARRAY: never[] = []
+
 export function Overview() {
   const currency = useCurrency()
   const { t } = useLanguage()
-  const { refreshKey } = useDashboardRefresh()
-  const [accounts, setAccounts] = useState<Account[]>([])
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [transfers, setTransfers] = useState<Transfer[]>([])
-  const [recentItems, setRecentItems] = useState<CombinedItem[]>([])
-  const [totalDebt, setTotalDebt] = useState(0)
-  const [budgetItems, setBudgetItems] = useState<BudgetItem[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const now = new Date()
-    const loadData = async () => {
-      try {
-        const [data, budgets] = await Promise.all([
-          getOverviewData(),
-          getBudgetOverview(now.getMonth() + 1, now.getFullYear()),
-        ])
-        setAccounts(data.accounts)
-        setTransactions(data.transactions)
-        setTransfers(data.transfers)
-        setTotalDebt(data.totalDebt)
-        setBudgetItems(budgets)
-      } catch (error) {
-        console.error('Error loading overview data:', error)
-      }
-      setLoading(false)
-    }
-
-    loadData()
-  }, [refreshKey])
-
-  useEffect(() => {
+  const now = new Date()
+  const { data: overviewData, isLoading: loadingOverview } = useOverviewData()
+  const { data: budgetItems = EMPTY_ARRAY, isLoading: loadingBudget } =
+    useBudgetOverview(now.getMonth() + 1, now.getFullYear())
+  const accounts = overviewData?.accounts ?? EMPTY_ARRAY
+  const transactions = overviewData?.transactions ?? EMPTY_ARRAY
+  const transfers = overviewData?.transfers ?? EMPTY_ARRAY
+  const totalDebt = overviewData?.totalDebt ?? 0
+  const loading = loadingOverview || loadingBudget
+  const recentItems = useMemo(() => {
     const accountMap = new Map<string, string>()
     for (const account of accounts) {
       accountMap.set(account.id, account.name)
@@ -140,15 +103,13 @@ export function Overview() {
       toAccountName: accountMap.get(t.toAccountId),
     }))
 
-    const combined = [...transactionItems, ...transferItems]
+    return [...transactionItems, ...transferItems]
       .sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       )
       .slice(0, 5)
-
-    setRecentItems(combined)
-  }, [transactions, transfers, accounts])
+  }, [accounts, transactions, transfers])
 
   const getTotalBalance = () => {
     return accounts.reduce(
@@ -534,7 +495,7 @@ export function Overview() {
                       <div>
                         <p className="font-medium">
                           {item.itemType === 'transaction'
-                            ? item.description
+                            ? item.description || item.categoryName
                             : item.note || t('overview.transfer')}
                         </p>
                         <p className="text-muted-foreground text-sm">
@@ -570,7 +531,9 @@ export function Overview() {
                         ${formatMoney(Number(item.amount), currency)}
                       </p>
                       <p className="text-muted-foreground text-sm">
-                        {new Date(item.date).toLocaleDateString()}
+                        {new Date(item.date).toLocaleDateString(undefined, {
+                          timeZone: 'UTC',
+                        })}
                       </p>
                     </div>
                   </div>

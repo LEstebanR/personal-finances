@@ -1,16 +1,14 @@
 'use client'
 
-import { getAccounts } from '@/app/dashboard/accounts/actions'
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
+import { useAccounts } from '@/lib/queries'
 import { Loader, PiggyBank, PlusIcon, Wallet } from 'lucide-react'
-import { useEffect, useState } from 'react'
 
 import { Button } from '../ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { AddAccountDialog } from './add-account-dialog'
-import { useDashboardRefresh } from './refresh-provider'
 
 interface Account {
   id: string
@@ -27,22 +25,7 @@ interface Account {
 export function Accounts() {
   const currency = useCurrency()
   const { t } = useLanguage()
-  const { refreshKey } = useDashboardRefresh()
-  const [accounts, setAccounts] = useState<Account[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const loadAccounts = async () => {
-    try {
-      const accounts = await getAccounts()
-      setAccounts(accounts)
-    } catch (error) {
-      console.error('Error loading accounts:', error)
-    }
-  }
-
-  useEffect(() => {
-    loadAccounts().finally(() => setLoading(false))
-  }, [refreshKey])
+  const { data: accounts = [], isLoading: loading } = useAccounts()
 
   const filterAccountsByType = (type: 'all' | 'cash' | 'savings') => {
     if (type === 'all') return accounts
