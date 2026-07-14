@@ -63,27 +63,52 @@ model Category {
   subcategories Subcategory[]
   transactions  Transaction[]
   budgetItems   BudgetItem[]
+  subscriptions Subscription[]
 
   @@index([userId])
 }
 
 model BudgetItem {
+  id             String        @id @default(uuid())
+  userId         String
+  categoryId     String
+  subcategoryId  String?
+  subscriptionId String?
+  date           DateTime
+  amount         Decimal       @db.Decimal(15, 2)
+  description    String
+  createdAt      DateTime      @default(now())
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category       Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  subcategory    Subcategory?  @relation(fields: [subcategoryId], references: [id])
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, date])
+  @@index([userId])
+  @@index([categoryId])
+  @@index([subcategoryId])
+  @@index([subscriptionId])
+  @@index([date])
+}
+
+model Subscription {
   id            String       @id @default(uuid())
   userId        String
+  name          String
   categoryId    String
   subcategoryId String?
-  date          DateTime
   amount        Decimal      @db.Decimal(15, 2)
-  description   String
+  dueDay        Int
+  startDate     DateTime
+  isActive      Boolean      @default(true)
   createdAt     DateTime     @default(now())
   user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   category      Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
+  budgetItems   BudgetItem[]
 
   @@index([userId])
   @@index([categoryId])
-  @@index([subcategoryId])
-  @@index([date])
 }
 
 model Subcategory {
@@ -95,6 +120,7 @@ model Subcategory {
   category     Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   transactions Transaction[]
   budgetItems  BudgetItem[]
+  subscriptions Subscription[]
 
   @@index([categoryId])
   @@index([userId])
@@ -132,6 +158,7 @@ model User {
   categories    Category[]
   debts         Debt[]
   budgetItems   BudgetItem[]
+  subscriptions Subscription[]
 
   @@unique([email])
   @@map("user")

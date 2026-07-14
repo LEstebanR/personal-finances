@@ -18,9 +18,58 @@ function monthRange(month: number, year: number) {
   }
 }
 
+// Lazily backfills this month's planned expense for every active
+// subscription that had already started by then, one per subscription per
+// month. Safe to call from multiple places concurrently: the unique
+// (subscriptionId, date) constraint plus skipDuplicates means a race just
+// results in one insert winning, not duplicate rows.
+async function ensureSubscriptionBudgetItems(
+  userId: string,
+  month: number,
+  year: number
+) {
+  const range = monthRange(month, year)
+
+  const subscriptions = await prisma.subscription.findMany({
+    where: { userId, isActive: true, startDate: { lt: range.lt } },
+  })
+  if (subscriptions.length === 0) return
+
+  const existing = await prisma.budgetItem.findMany({
+    where: {
+      userId,
+      subscriptionId: { in: subscriptions.map((s) => s.id) },
+      date: range,
+    },
+    select: { subscriptionId: true },
+  })
+  const existingIds = new Set(existing.map((e) => e.subscriptionId))
+  const missing = subscriptions.filter((s) => !existingIds.has(s.id))
+  if (missing.length === 0) return
+
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
+
+  await prisma.budgetItem.createMany({
+    data: missing.map((s) => ({
+      userId,
+      categoryId: s.categoryId,
+      subcategoryId: s.subcategoryId,
+      subscriptionId: s.id,
+      date: new Date(
+        Date.UTC(year, month - 1, Math.min(s.dueDay, daysInMonth))
+      ),
+      amount: s.amount,
+      description: s.name,
+    })),
+    skipDuplicates: true,
+  })
+}
+
 export async function getBudgetOverview(month: number, year: number) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
+
+  await ensureSubscriptionBudgetItems(session.user.id, month, year)
 
   const range = monthRange(month, year)
 
@@ -69,6 +118,8 @@ export async function getBudgetOverview(month: number, year: number) {
 export async function getBudgetItems(month: number, year: number) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
+
+  await ensureSubscriptionBudgetItems(session.user.id, month, year)
 
   const items = await prisma.budgetItem.findMany({
     where: { userId: session.user.id, date: monthRange(month, year) },

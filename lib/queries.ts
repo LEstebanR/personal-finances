@@ -9,6 +9,7 @@ import {
 } from '@/app/dashboard/categories/actions'
 import { getDebts } from '@/app/dashboard/debts/actions'
 import { getOverviewData } from '@/app/dashboard/overview/actions'
+import { getSubscriptions } from '@/app/dashboard/subscriptions/actions'
 import {
   getTransactions,
   getTransfers,
@@ -18,6 +19,7 @@ import { useQuery } from '@tanstack/react-query'
 export const queryKeys = {
   accounts: ['accounts'] as const,
   debts: ['debts'] as const,
+  subscriptions: ['subscriptions'] as const,
   categories: (type?: 'income' | 'expense') => ['categories', type] as const,
   subcategories: (categoryId: string) => ['subcategories', categoryId] as const,
   transactions: ['transactions'] as const,
@@ -35,6 +37,13 @@ export function useAccounts() {
 
 export function useDebts() {
   return useQuery({ queryKey: queryKeys.debts, queryFn: getDebts })
+}
+
+export function useSubscriptions() {
+  return useQuery({
+    queryKey: queryKeys.subscriptions,
+    queryFn: getSubscriptions,
+  })
 }
 
 export function useCategories(type?: 'income' | 'expense') {

@@ -3,7 +3,11 @@
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
-import { useBudgetOverview, useOverviewData } from '@/lib/queries'
+import {
+  useBudgetItems,
+  useBudgetOverview,
+  useOverviewData,
+} from '@/lib/queries'
 import {
   DollarSign,
   Landmark,
@@ -13,7 +17,16 @@ import {
   Wallet,
 } from 'lucide-react'
 import { useMemo } from 'react'
-import { Cell, Pie, PieChart } from 'recharts'
+import {
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  XAxis,
+  YAxis,
+} from 'recharts'
 
 import {
   Card,
@@ -75,14 +88,18 @@ export function Overview() {
   const currency = useCurrency()
   const { t } = useLanguage()
   const now = new Date()
+  const currentMonth = now.getMonth() + 1
+  const currentYear = now.getFullYear()
   const { data: overviewData, isLoading: loadingOverview } = useOverviewData()
   const { data: budgetItems = EMPTY_ARRAY, isLoading: loadingBudget } =
-    useBudgetOverview(now.getMonth() + 1, now.getFullYear())
+    useBudgetOverview(currentMonth, currentYear)
+  const { data: monthBudgetItems = EMPTY_ARRAY, isLoading: loadingCashFlow } =
+    useBudgetItems(currentMonth, currentYear)
   const accounts = overviewData?.accounts ?? EMPTY_ARRAY
   const transactions = overviewData?.transactions ?? EMPTY_ARRAY
   const transfers = overviewData?.transfers ?? EMPTY_ARRAY
   const totalDebt = overviewData?.totalDebt ?? 0
-  const loading = loadingOverview || loadingBudget
+  const loading = loadingOverview || loadingBudget || loadingCashFlow
   const recentItems = useMemo(() => {
     const accountMap = new Map<string, string>()
     for (const account of accounts) {
@@ -170,6 +187,56 @@ export function Overview() {
       }))
       .sort((a, b) => b.amount - a.amount)
   }
+
+  const cashFlowData = useMemo(() => {
+    const daysInMonth = new Date(
+      Date.UTC(currentYear, currentMonth, 0)
+    ).getUTCDate()
+
+    const plannedByDay = new Map<number, number>()
+    for (const item of monthBudgetItems) {
+      const day = new Date(item.date).getUTCDate()
+      plannedByDay.set(day, (plannedByDay.get(day) ?? 0) + item.amount)
+    }
+
+    const actualByDay = new Map<number, number>()
+    for (const transaction of transactions) {
+      if (transaction.type !== 'expense') continue
+      const date = new Date(transaction.date)
+      if (
+        date.getUTCFullYear() !== currentYear ||
+        date.getUTCMonth() + 1 !== currentMonth
+      )
+        continue
+      const day = date.getUTCDate()
+      actualByDay.set(day, (actualByDay.get(day) ?? 0) + transaction.amount)
+    }
+
+    let cumulativePlanned = 0
+    let cumulativeActual = 0
+    const data = []
+    for (let day = 1; day <= daysInMonth; day++) {
+      cumulativePlanned += plannedByDay.get(day) ?? 0
+      cumulativeActual += actualByDay.get(day) ?? 0
+      data.push({
+        day,
+        planned: cumulativePlanned,
+        actual: cumulativeActual,
+      })
+    }
+    return data
+  }, [monthBudgetItems, transactions, currentMonth, currentYear])
+
+  const cashFlowChartConfig = {
+    planned: {
+      label: t('overview.cashFlowPlanned'),
+      color: 'var(--chart-1)',
+    },
+    actual: {
+      label: t('overview.cashFlowActual'),
+      color: 'var(--chart-2)',
+    },
+  } satisfies ChartConfig
 
   const categoryBreakdown = getCategoryBreakdown()
   const categoryChartConfig = categoryBreakdown.reduce<ChartConfig>(
@@ -380,6 +447,83 @@ export function Overview() {
 
         <Card>
           <CardHeader>
+            <CardTitle>{t('overview.cashFlowTitle')}</CardTitle>
+            <CardDescription>{t('overview.cashFlowDesc')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {monthBudgetItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <span className="mb-2 text-4xl">📈</span>
+                <p className="text-muted-foreground">
+                  {t('overview.noBudgetYet')}
+                </p>
+              </div>
+            ) : (
+              <ChartContainer
+                config={cashFlowChartConfig}
+                className="aspect-auto h-64 w-full"
+              >
+                <LineChart data={cashFlowData}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis
+                    dataKey="day"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tickFormatter={(value) =>
+                      formatMoney(Number(value), currency)
+                    }
+                    width={70}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        labelFormatter={(day) =>
+                          t('overview.cashFlowDay', { day: String(day) })
+                        }
+                        formatter={(value, name) => (
+                          <div className="flex w-full items-center justify-between gap-4">
+                            <span className="text-muted-foreground">
+                              {name === 'planned'
+                                ? t('overview.cashFlowPlanned')
+                                : t('overview.cashFlowActual')}
+                            </span>
+                            <span className="font-medium">
+                              ${formatMoney(Number(value), currency)}
+                            </span>
+                          </div>
+                        )}
+                      />
+                    }
+                  />
+                  <Line
+                    dataKey="planned"
+                    type="monotone"
+                    stroke="var(--color-planned)"
+                    strokeDasharray="4 4"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                  <Line
+                    dataKey="actual"
+                    type="monotone"
+                    stroke="var(--color-actual)"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>{t('overview.categoryBreakdown')}</CardTitle>
             <CardDescription>
               {t('overview.categoryBreakdownDesc')}
@@ -403,6 +547,8 @@ export function Overview() {
                     <ChartTooltip
                       content={
                         <ChartTooltipContent
+                          nameKey="category"
+                          labelKey="category"
                           formatter={(value) =>
                             `$${formatMoney(Number(value), currency)}`
                           }

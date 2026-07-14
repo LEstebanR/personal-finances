@@ -19,6 +19,7 @@ import {
   Home,
   Landmark,
   PiggyBank,
+  Repeat,
   Settings,
   User,
   Wallet,
@@ -45,6 +46,11 @@ export function AppSidebar() {
     },
     { icon: <Landmark />, label: t('nav.debts'), href: '?debts' },
     { icon: <PiggyBank />, label: t('nav.budget'), href: '?budget' },
+    {
+      icon: <Repeat />,
+      label: t('nav.subscriptions'),
+      href: '?subscriptions',
+    },
   ]
 
   const optionsSettings = [
