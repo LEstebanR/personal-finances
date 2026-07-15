@@ -99,14 +99,26 @@ export async function updateDebt(id: string, formData: FormData) {
       ? parseOptionalCurrencyInput(formData.get('creditLimit'))
       : null
 
-  const debt = await prisma.debt.update({
-    where: { id, userId: session.user.id },
-    data: {
-      name: formData.get('name') as string,
-      minimumPayment,
-      paymentDueDay,
-      creditLimit,
-    },
+  const debt = await prisma.$transaction(async (tx) => {
+    const updated = await tx.debt.update({
+      where: { id, userId: session.user.id },
+      data: {
+        name: formData.get('name') as string,
+        minimumPayment,
+        paymentDueDay,
+        creditLimit,
+      },
+    })
+
+    // Not-yet-arrived planned items were generated from the old minimum
+    // payment/due day; drop them so they regenerate with the updated
+    // details next time that month is viewed. Past/current entries stay as
+    // the historical record of what was actually planned.
+    await tx.budgetItem.deleteMany({
+      where: { debtId: id, date: { gt: new Date() } },
+    })
+
+    return updated
   })
 
   return {

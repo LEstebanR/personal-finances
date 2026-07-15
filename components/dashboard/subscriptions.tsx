@@ -32,6 +32,21 @@ import {
 } from './add-subscription-dialog'
 import { useDashboardRefresh } from './refresh-provider'
 
+const MONTH_KEYS = [
+  'january',
+  'february',
+  'march',
+  'april',
+  'may',
+  'june',
+  'july',
+  'august',
+  'september',
+  'october',
+  'november',
+  'december',
+] as const
+
 interface Subscription {
   id: string
   name: string
@@ -40,7 +55,9 @@ interface Subscription {
   categoryName: string
   subcategoryName: string | null
   amount: number
-  dueDay: number
+  frequency: string
+  dueDay: number | null
+  dueMonth: number | null
   startDate: Date
   isActive: boolean
 }
@@ -55,7 +72,11 @@ export function Subscriptions() {
 
   const totalMonthly = subscriptions
     .filter((s) => s.isActive)
-    .reduce((total, s) => total + s.amount, 0)
+    .reduce(
+      (total, s) =>
+        total + (s.frequency === 'yearly' ? s.amount / 12 : s.amount),
+      0
+    )
 
   const handleCancel = async (id: string) => {
     try {
@@ -125,7 +146,9 @@ export function Subscriptions() {
               categoryId: subscription.categoryId,
               subcategoryId: subscription.subcategoryId,
               amount: subscription.amount,
+              frequency: subscription.frequency,
               dueDay: subscription.dueDay,
+              dueMonth: subscription.dueMonth,
               startDate: subscription.startDate,
             })
           }
@@ -139,7 +162,14 @@ export function Subscriptions() {
           ${formatMoney(subscription.amount, currency)}
         </p>
         <p className="mt-1 text-xs text-gray-500">
-          {t('debts.dueOnDay', { day: String(subscription.dueDay) })}
+          {subscription.frequency === 'yearly'
+            ? t('subscriptions.dueOnDayOfMonth', {
+                day: String(subscription.dueDay),
+                month: t(
+                  `budgets.months.${MONTH_KEYS[(subscription.dueMonth ?? 1) - 1]}`
+                ),
+              })
+            : t('debts.dueOnDay', { day: String(subscription.dueDay) })}
         </p>
       </div>
 

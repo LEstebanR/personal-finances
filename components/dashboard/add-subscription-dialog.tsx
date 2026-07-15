@@ -23,8 +23,30 @@ import {
 } from '../ui/dialog'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select'
 import { SubcategoryCombobox } from '../ui/subcategory-combobox'
 import { useDashboardRefresh } from './refresh-provider'
+
+const MONTH_KEYS = [
+  'january',
+  'february',
+  'march',
+  'april',
+  'may',
+  'june',
+  'july',
+  'august',
+  'september',
+  'october',
+  'november',
+  'december',
+] as const
 
 export interface EditableSubscription {
   id: string
@@ -32,7 +54,9 @@ export interface EditableSubscription {
   categoryId: string
   subcategoryId: string | null
   amount: number
-  dueDay: number
+  frequency: string
+  dueDay: number | null
+  dueMonth: number | null
   startDate: Date
 }
 
@@ -54,6 +78,9 @@ export function AddSubscriptionDialog({
   const setIsOpen = setControlledOpen ?? setInternalOpen
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [categoryId, setCategoryId] = useState(subscription?.categoryId ?? '')
+  const [frequency, setFrequency] = useState(
+    subscription?.frequency === 'yearly' ? 'yearly' : 'monthly'
+  )
   const isEditing = !!subscription
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -133,6 +160,65 @@ export function AddSubscriptionDialog({
               />
             </div>
             <div className="flex flex-col gap-1">
+              <Label>{t('subscriptions.frequency')}</Label>
+              <Select
+                name="frequency"
+                defaultValue={frequency}
+                onValueChange={setFrequency}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">
+                    {t('subscriptions.monthly')}
+                  </SelectItem>
+                  <SelectItem value="yearly">
+                    {t('subscriptions.yearly')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {frequency === 'yearly' ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1">
+                <Label>{t('subscriptions.dueMonth')}</Label>
+                <Select
+                  name="dueMonth"
+                  defaultValue={
+                    subscription?.dueMonth != null
+                      ? String(subscription.dueMonth)
+                      : undefined
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTH_KEYS.map((key, index) => (
+                      <SelectItem key={key} value={String(index + 1)}>
+                        {t(`budgets.months.${key}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label>{t('subscriptions.dueDay')}</Label>
+                <Input
+                  type="number"
+                  name="dueDay"
+                  min={1}
+                  max={31}
+                  required
+                  placeholder={t('debts.dayOfMonth')}
+                  defaultValue={subscription?.dueDay ?? undefined}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1">
               <Label>{t('subscriptions.dueDay')}</Label>
               <Input
                 type="number"
@@ -141,10 +227,10 @@ export function AddSubscriptionDialog({
                 max={31}
                 required
                 placeholder={t('debts.dayOfMonth')}
-                defaultValue={subscription?.dueDay}
+                defaultValue={subscription?.dueDay ?? undefined}
               />
             </div>
-          </div>
+          )}
           {subscription ? (
             <p className="text-muted-foreground text-xs">
               {t('subscriptions.startedOn', {

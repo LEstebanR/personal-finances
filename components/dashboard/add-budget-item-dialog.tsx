@@ -1,7 +1,9 @@
 'use client'
 
 import {
+  cancelRecurringExpense,
   createBudgetItem,
+  createRecurringExpense,
   updateBudgetItem,
 } from '@/app/dashboard/budgets/actions'
 import { useLanguage } from '@/components/language-provider'
@@ -24,7 +26,15 @@ import {
 } from '../ui/dialog'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select'
 import { SubcategoryCombobox } from '../ui/subcategory-combobox'
+import { Switch } from '../ui/switch'
 
 export interface EditableBudgetItem {
   id: string
@@ -33,6 +43,8 @@ export interface EditableBudgetItem {
   date: Date
   amount: number
   description: string
+  recurringExpenseId: string | null
+  debtId: string | null
 }
 
 export function AddBudgetItemDialog({
@@ -55,7 +67,9 @@ export function AddBudgetItemDialog({
   const isOpen = controlledOpen ?? internalOpen
   const setIsOpen = setControlledOpen ?? setInternalOpen
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isCancelling, setIsCancelling] = useState(false)
   const [categoryId, setCategoryId] = useState(item?.categoryId ?? '')
+  const [isRecurring, setIsRecurring] = useState(false)
   const isEditing = !!item
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -67,6 +81,9 @@ export function AddBudgetItemDialog({
       if (item) {
         await updateBudgetItem(item.id, formData)
         toast.success(t('budgets.itemUpdated'))
+      } else if (isRecurring) {
+        await createRecurringExpense(formData)
+        toast.success(t('budgets.recurringExpenseCreated'))
       } else {
         await createBudgetItem(formData)
         toast.success(t('budgets.itemCreated'))
@@ -74,12 +91,28 @@ export function AddBudgetItemDialog({
       onSaved()
       e.currentTarget?.reset()
       setIsOpen(false)
+      setIsRecurring(false)
     } catch (error) {
       console.error('Error saving budget item:', error)
       toast.error(t('budgets.itemSaveFailed'))
     }
 
     setIsSubmitting(false)
+  }
+
+  const handleCancelRecurring = async () => {
+    if (!item?.recurringExpenseId) return
+    setIsCancelling(true)
+    try {
+      await cancelRecurringExpense(item.recurringExpenseId)
+      toast.success(t('budgets.recurringCancelled'))
+      onSaved()
+      setIsOpen(false)
+    } catch (error) {
+      console.error('Error cancelling recurring expense:', error)
+      toast.error(t('budgets.recurringCancelFailed'))
+    }
+    setIsCancelling(false)
   }
 
   return (
@@ -126,13 +159,80 @@ export function AddBudgetItemDialog({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label>{t('budgets.descriptionOptional')}</Label>
+            <Label>
+              {isRecurring ? t('debts.name') : t('budgets.descriptionOptional')}
+            </Label>
             <Input
               type="text"
               name="description"
+              required={isRecurring}
               defaultValue={item?.description}
             />
           </div>
+          {!isEditing && (
+            <div className="flex flex-col gap-3 rounded-md border p-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="isRecurring" className="font-normal">
+                  {t('budgets.isRecurring')}
+                </Label>
+                <Switch
+                  id="isRecurring"
+                  checked={isRecurring}
+                  onCheckedChange={setIsRecurring}
+                />
+              </div>
+              {isRecurring && (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <Label>{t('subscriptions.frequency')}</Label>
+                    <Select name="frequency" defaultValue="monthly">
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">
+                          {t('subscriptions.monthly')}
+                        </SelectItem>
+                        <SelectItem value="weekly">
+                          {t('subscriptions.weekly')}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    {t('budgets.recurringNote')}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+          {isEditing && item.recurringExpenseId && (
+            <div className="flex flex-col gap-2 rounded-md border p-3">
+              <p className="text-muted-foreground text-xs">
+                {t('budgets.thisItemIsRecurring')}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isCancelling}
+                onClick={handleCancelRecurring}
+              >
+                {isCancelling ? (
+                  <Loader className="h-4 w-4 animate-spin" />
+                ) : (
+                  t('budgets.cancelRecurring')
+                )}
+              </Button>
+            </div>
+          )}
+          {isEditing && item.debtId && (
+            <div className="rounded-md border p-3">
+              <p className="text-muted-foreground text-xs">
+                {t('budgets.thisItemIsFromDebt', { name: item.description })}
+              </p>
+            </div>
+          )}
           <Button className="w-full" type="submit" disabled={isSubmitting}>
             {isSubmitting ? (
               <>

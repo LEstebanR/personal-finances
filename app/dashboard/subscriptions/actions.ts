@@ -10,6 +10,20 @@ function parseDueDay(value: FormDataEntryValue | null): number {
   return Math.min(31, Math.max(1, parsed))
 }
 
+function parseDueMonth(value: FormDataEntryValue | null): number {
+  const parsed = parseInt(String(value ?? ''), 10)
+  if (Number.isNaN(parsed) || parsed < 1 || parsed > 12) {
+    throw new Error('Invalid due month')
+  }
+  return parsed
+}
+
+function parseFrequency(
+  value: FormDataEntryValue | null
+): 'yearly' | 'monthly' {
+  return value === 'yearly' ? 'yearly' : 'monthly'
+}
+
 export async function getSubscriptions() {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
@@ -36,7 +50,10 @@ export async function createSubscription(formData: FormData) {
   const categoryId = formData.get('categoryId') as string
   const subcategoryId = (formData.get('subcategoryId') as string) || null
   const amount = parseCurrencyInput(formData.get('amount'))
+  const frequency = parseFrequency(formData.get('frequency'))
   const dueDay = parseDueDay(formData.get('dueDay'))
+  const dueMonth =
+    frequency === 'yearly' ? parseDueMonth(formData.get('dueMonth')) : null
   const startDate = new Date(formData.get('startDate') as string)
 
   if (Number.isNaN(amount) || amount <= 0) {
@@ -54,7 +71,9 @@ export async function createSubscription(formData: FormData) {
       categoryId,
       subcategoryId,
       amount,
+      frequency,
       dueDay,
+      dueMonth,
       startDate,
     },
   })
@@ -70,7 +89,10 @@ export async function updateSubscription(id: string, formData: FormData) {
   const categoryId = formData.get('categoryId') as string
   const subcategoryId = (formData.get('subcategoryId') as string) || null
   const amount = parseCurrencyInput(formData.get('amount'))
+  const frequency = parseFrequency(formData.get('frequency'))
   const dueDay = parseDueDay(formData.get('dueDay'))
+  const dueMonth =
+    frequency === 'yearly' ? parseDueMonth(formData.get('dueMonth')) : null
 
   if (Number.isNaN(amount) || amount <= 0) {
     throw new Error('Invalid amount')
@@ -86,7 +108,15 @@ export async function updateSubscription(id: string, formData: FormData) {
   const subscription = await prisma.$transaction(async (tx) => {
     const updated = await tx.subscription.update({
       where: { id },
-      data: { name, categoryId, subcategoryId, amount, dueDay },
+      data: {
+        name,
+        categoryId,
+        subcategoryId,
+        amount,
+        frequency,
+        dueDay,
+        dueMonth,
+      },
     })
 
     // Not-yet-arrived planned items were generated from the old details;

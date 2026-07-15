@@ -18,11 +18,51 @@ function monthRange(month: number, year: number) {
   }
 }
 
-// Lazily backfills this month's planned expense for every active
-// subscription that had already started by then, one per subscription per
-// month. Safe to call from multiple places concurrently: the unique
-// (subscriptionId, date) constraint plus skipDuplicates means a race just
-// results in one insert winning, not duplicate rows.
+interface RecurringSchedule {
+  frequency: string
+  dueDay: number | null
+  dueMonth?: number | null
+  weekday?: number | null
+  startDate: Date
+}
+
+// Supports the three recurrence shapes used across Subscriptions (monthly,
+// yearly) and Budget recurring expenses (weekly, monthly): weekly recurs on
+// a matching weekday every month, yearly recurs once a year on dueMonth, and
+// monthly recurs once a month on dueDay (clamped to the month's length).
+// Occurrences before the schedule's startDate are skipped so something
+// started mid-period doesn't backfill earlier weeks/months/years.
+function occurrenceDatesInMonth(
+  schedule: RecurringSchedule,
+  year: number,
+  month: number,
+  daysInMonth: number
+): Date[] {
+  if (schedule.frequency === 'weekly') {
+    const dates: Date[] = []
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(Date.UTC(year, month - 1, day))
+      if (date.getUTCDay() === schedule.weekday && date >= schedule.startDate) {
+        dates.push(date)
+      }
+    }
+    return dates
+  }
+
+  if (schedule.frequency === 'yearly' && schedule.dueMonth !== month) {
+    return []
+  }
+
+  const day = Math.min(schedule.dueDay ?? 1, daysInMonth)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return date >= schedule.startDate ? [date] : []
+}
+
+// Lazily backfills this month's planned expenses for every active
+// subscription that had already started by then. Safe to call from multiple
+// places concurrently: the unique (subscriptionId, date) constraint plus
+// skipDuplicates means a race just results in one insert winning, not
+// duplicate rows.
 async function ensureSubscriptionBudgetItems(
   userId: string,
   month: number,
@@ -41,35 +81,164 @@ async function ensureSubscriptionBudgetItems(
       subscriptionId: { in: subscriptions.map((s) => s.id) },
       date: range,
     },
-    select: { subscriptionId: true },
+    select: { subscriptionId: true, date: true },
   })
-  const existingIds = new Set(existing.map((e) => e.subscriptionId))
-  const missing = subscriptions.filter((s) => !existingIds.has(s.id))
-  if (missing.length === 0) return
+  const existingKeys = new Set(
+    existing.map((e) => `${e.subscriptionId}:${e.date.getTime()}`)
+  )
 
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
 
-  await prisma.budgetItem.createMany({
-    data: missing.map((s) => ({
-      userId,
-      categoryId: s.categoryId,
-      subcategoryId: s.subcategoryId,
-      subscriptionId: s.id,
-      date: new Date(
-        Date.UTC(year, month - 1, Math.min(s.dueDay, daysInMonth))
-      ),
-      amount: s.amount,
-      description: s.name,
-    })),
-    skipDuplicates: true,
+  const toCreate = subscriptions.flatMap((subscription) =>
+    occurrenceDatesInMonth(subscription, year, month, daysInMonth)
+      .filter(
+        (date) => !existingKeys.has(`${subscription.id}:${date.getTime()}`)
+      )
+      .map((date) => ({
+        userId,
+        categoryId: subscription.categoryId,
+        subcategoryId: subscription.subcategoryId,
+        subscriptionId: subscription.id,
+        date,
+        amount: subscription.amount,
+        description: subscription.name,
+      }))
+  )
+  if (toCreate.length === 0) return
+
+  await prisma.budgetItem.createMany({ data: toCreate, skipDuplicates: true })
+}
+
+// Same idea as ensureSubscriptionBudgetItems, but for recurring expenses
+// added directly from the Budget view. Kept as a separate model from
+// Subscription on purpose: these shouldn't show up in the Subscriptions view
+// or be manageable from there, even though the recurrence math is identical.
+async function ensureRecurringExpenseBudgetItems(
+  userId: string,
+  month: number,
+  year: number
+) {
+  const range = monthRange(month, year)
+
+  const recurringExpenses = await prisma.recurringExpense.findMany({
+    where: { userId, isActive: true, startDate: { lt: range.lt } },
   })
+  if (recurringExpenses.length === 0) return
+
+  const existing = await prisma.budgetItem.findMany({
+    where: {
+      userId,
+      recurringExpenseId: { in: recurringExpenses.map((r) => r.id) },
+      date: range,
+    },
+    select: { recurringExpenseId: true, date: true },
+  })
+  const existingKeys = new Set(
+    existing.map((e) => `${e.recurringExpenseId}:${e.date.getTime()}`)
+  )
+
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
+
+  const toCreate = recurringExpenses.flatMap((recurringExpense) =>
+    occurrenceDatesInMonth(recurringExpense, year, month, daysInMonth)
+      .filter(
+        (date) => !existingKeys.has(`${recurringExpense.id}:${date.getTime()}`)
+      )
+      .map((date) => ({
+        userId,
+        categoryId: recurringExpense.categoryId,
+        subcategoryId: recurringExpense.subcategoryId,
+        recurringExpenseId: recurringExpense.id,
+        date,
+        amount: recurringExpense.amount,
+        description: recurringExpense.name,
+      }))
+  )
+  if (toCreate.length === 0) return
+
+  await prisma.budgetItem.createMany({ data: toCreate, skipDuplicates: true })
+}
+
+// Debts with both a minimum payment and a due day behave like a monthly
+// recurring expense: one occurrence a month, on paymentDueDay, categorized
+// under the "Deuda" default category (debts don't have their own category).
+// Uses the debt's createdAt as the schedule's startDate so a debt added
+// mid-month doesn't backfill a payment for a month before it existed.
+async function ensureDebtBudgetItems(
+  userId: string,
+  month: number,
+  year: number
+) {
+  const range = monthRange(month, year)
+
+  const debts = await prisma.debt.findMany({
+    where: {
+      userId,
+      minimumPayment: { not: null },
+      paymentDueDay: { not: null },
+      remainingBalance: { gt: 0 },
+    },
+  })
+  if (debts.length === 0) return
+
+  const debtCategory = await prisma.category.findFirst({
+    where: {
+      userId,
+      type: 'expense',
+      name: { equals: 'Deuda', mode: 'insensitive' },
+    },
+  })
+  if (!debtCategory) return
+
+  const existing = await prisma.budgetItem.findMany({
+    where: { userId, debtId: { in: debts.map((d) => d.id) }, date: range },
+    select: { debtId: true, date: true },
+  })
+  const existingKeys = new Set(
+    existing.map((e) => `${e.debtId}:${e.date.getTime()}`)
+  )
+
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
+
+  const toCreate = debts.flatMap((debt) => {
+    const { minimumPayment, paymentDueDay } = debt
+    if (minimumPayment === null || paymentDueDay === null) return []
+
+    return occurrenceDatesInMonth(
+      {
+        frequency: 'monthly',
+        dueDay: paymentDueDay,
+        startDate: debt.createdAt,
+      },
+      year,
+      month,
+      daysInMonth
+    )
+      .filter((date) => !existingKeys.has(`${debt.id}:${date.getTime()}`))
+      .map((date) => ({
+        userId,
+        categoryId: debtCategory.id,
+        subcategoryId: null,
+        debtId: debt.id,
+        date,
+        amount: minimumPayment,
+        description: debt.name,
+      }))
+  })
+  if (toCreate.length === 0) return
+
+  await prisma.budgetItem.createMany({ data: toCreate, skipDuplicates: true })
 }
 
 export async function getBudgetOverview(month: number, year: number) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  await ensureSubscriptionBudgetItems(session.user.id, month, year)
+  await Promise.all([
+    ensureSubscriptionBudgetItems(session.user.id, month, year),
+    ensureRecurringExpenseBudgetItems(session.user.id, month, year),
+    ensureDebtBudgetItems(session.user.id, month, year),
+  ])
 
   const range = monthRange(month, year)
 
@@ -119,7 +288,11 @@ export async function getBudgetItems(month: number, year: number) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  await ensureSubscriptionBudgetItems(session.user.id, month, year)
+  await Promise.all([
+    ensureSubscriptionBudgetItems(session.user.id, month, year),
+    ensureRecurringExpenseBudgetItems(session.user.id, month, year),
+    ensureDebtBudgetItems(session.user.id, month, year),
+  ])
 
   const items = await prisma.budgetItem.findMany({
     where: { userId: session.user.id, date: monthRange(month, year) },
@@ -205,4 +378,86 @@ export async function deleteBudgetItem(id: string) {
   })
 
   await prisma.budgetItem.delete({ where: { id } })
+}
+
+// Creates the recurring expense and its first occurrence (dated exactly on
+// the day the user picked) in one go, instead of relying on the next
+// ensureRecurringExpenseBudgetItems pass to backfill it.
+export async function createRecurringExpense(formData: FormData) {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  const categoryId = formData.get('categoryId') as string
+  const subcategoryId = (formData.get('subcategoryId') as string) || null
+  const amount = parseCurrencyInput(formData.get('amount'))
+  const name = ((formData.get('description') as string) || '').trim()
+  const frequency =
+    formData.get('frequency') === 'weekly' ? 'weekly' : 'monthly'
+  const date = new Date(formData.get('date') as string)
+
+  if (Number.isNaN(amount) || amount <= 0) {
+    throw new Error('Invalid amount')
+  }
+  if (!name) {
+    throw new Error('Name is required for a recurring expense')
+  }
+
+  await prisma.category.findFirstOrThrow({
+    where: { id: categoryId, userId: session.user.id },
+  })
+
+  const dueDay = frequency === 'monthly' ? date.getUTCDate() : null
+  const weekday = frequency === 'weekly' ? date.getUTCDay() : null
+
+  const item = await prisma.$transaction(async (tx) => {
+    const recurringExpense = await tx.recurringExpense.create({
+      data: {
+        userId: session.user.id,
+        name,
+        categoryId,
+        subcategoryId,
+        amount,
+        frequency,
+        dueDay,
+        weekday,
+        startDate: date,
+      },
+    })
+
+    return tx.budgetItem.create({
+      data: {
+        userId: session.user.id,
+        categoryId,
+        subcategoryId,
+        recurringExpenseId: recurringExpense.id,
+        date,
+        amount,
+        description: name,
+      },
+    })
+  })
+
+  return { ...item, amount: Number(item.amount) }
+}
+
+// Stops future occurrences (not-yet-arrived planned items) but keeps past
+// and current entries as history, mirroring how cancelling a Subscription
+// behaves.
+export async function cancelRecurringExpense(id: string) {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  await prisma.recurringExpense.findFirstOrThrow({
+    where: { id, userId: session.user.id },
+  })
+
+  await prisma.$transaction(async (tx) => {
+    await tx.recurringExpense.update({
+      where: { id },
+      data: { isActive: false },
+    })
+    await tx.budgetItem.deleteMany({
+      where: { recurringExpenseId: id, date: { gt: new Date() } },
+    })
+  })
 }

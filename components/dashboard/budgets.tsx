@@ -12,6 +12,7 @@ import {
   Loader,
   Pencil,
   PlusIcon,
+  Repeat,
   Trash2,
   Wallet,
 } from 'lucide-react'
@@ -111,7 +112,8 @@ export function Budgets() {
   // reopening it for the same item reuses stale internal state (e.g. the
   // DatePicker keeps whatever date it last held instead of the fresh value).
   const [dialogKey, setDialogKey] = useState(0)
-  const [currentPage, setCurrentPage] = useState(1)
+  const [occasionalPage, setOccasionalPage] = useState(1)
+  const [recurringPage, setRecurringPage] = useState(1)
 
   const { data: items = [], isLoading: loadingItems } = useBudgetItems(
     month,
@@ -131,7 +133,8 @@ export function Budgets() {
   }, [items])
 
   const goToPreviousMonth = () => {
-    setCurrentPage(1)
+    setOccasionalPage(1)
+    setRecurringPage(1)
     if (month === 1) {
       setMonth(12)
       setYear((y) => y - 1)
@@ -141,7 +144,8 @@ export function Budgets() {
   }
 
   const goToNextMonth = () => {
-    setCurrentPage(1)
+    setOccasionalPage(1)
+    setRecurringPage(1)
     if (month === 12) {
       setMonth(1)
       setYear((y) => y + 1)
@@ -150,11 +154,40 @@ export function Budgets() {
     }
   }
 
-  const totalPages = Math.max(1, Math.ceil(items.length / ITEMS_PER_PAGE))
-  const page = Math.min(currentPage, totalPages)
-  const paginatedItems = items.slice(
-    (page - 1) * ITEMS_PER_PAGE,
-    page * ITEMS_PER_PAGE
+  const occasionalItems = useMemo(
+    () =>
+      items.filter(
+        (item) =>
+          !item.subscriptionId && !item.recurringExpenseId && !item.debtId
+      ),
+    [items]
+  )
+  const recurringItems = useMemo(
+    () =>
+      items.filter(
+        (item) => item.subscriptionId || item.recurringExpenseId || item.debtId
+      ),
+    [items]
+  )
+
+  const occasionalTotalPages = Math.max(
+    1,
+    Math.ceil(occasionalItems.length / ITEMS_PER_PAGE)
+  )
+  const occasionalPageClamped = Math.min(occasionalPage, occasionalTotalPages)
+  const paginatedOccasionalItems = occasionalItems.slice(
+    (occasionalPageClamped - 1) * ITEMS_PER_PAGE,
+    occasionalPageClamped * ITEMS_PER_PAGE
+  )
+
+  const recurringTotalPages = Math.max(
+    1,
+    Math.ceil(recurringItems.length / ITEMS_PER_PAGE)
+  )
+  const recurringPageClamped = Math.min(recurringPage, recurringTotalPages)
+  const paginatedRecurringItems = recurringItems.slice(
+    (recurringPageClamped - 1) * ITEMS_PER_PAGE,
+    recurringPageClamped * ITEMS_PER_PAGE
   )
 
   const handleDelete = async (id: string) => {
@@ -173,6 +206,119 @@ export function Budgets() {
     0
   )
   const totalSpent = categoryTotals.reduce((sum, item) => sum + item.spent, 0)
+
+  const openEdit = (item: (typeof items)[number]) => {
+    setEditingItem({
+      id: item.id,
+      categoryId: item.categoryId,
+      subcategoryId: item.subcategoryId,
+      date: item.date,
+      amount: item.amount,
+      description: item.description,
+      recurringExpenseId: item.recurringExpenseId,
+      debtId: item.debtId,
+    })
+    setDialogKey((k) => k + 1)
+    setIsAddOpen(true)
+  }
+
+  const BudgetItemRow = ({
+    item,
+    isRecurring,
+  }: {
+    item: (typeof items)[number]
+    isRecurring: boolean
+  }) => (
+    <div className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="text-muted-foreground w-14 shrink-0 text-xs">
+          {new Date(item.date).toLocaleDateString(undefined, {
+            day: '2-digit',
+            month: 'short',
+            timeZone: 'UTC',
+          })}
+        </span>
+        <div className="min-w-0">
+          <p className="flex items-center gap-1 truncate text-sm font-medium">
+            {isRecurring && (
+              <Repeat className="text-muted-foreground h-3 w-3 shrink-0" />
+            )}
+            <span className="truncate">
+              {item.description || item.categoryName}
+            </span>
+          </p>
+          <p className="text-muted-foreground text-xs">
+            {item.categoryName}
+            {item.subcategoryName && ` • ${item.subcategoryName}`}
+          </p>
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="text-sm font-medium">
+          ${formatMoney(item.amount, currency)}
+        </span>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7"
+          onClick={() => openEdit(item)}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="text-destructive hover:text-destructive h-7 w-7"
+          onClick={() => handleDelete(item.id)}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  )
+
+  const PaginationBar = ({
+    page,
+    totalPages,
+    totalItems,
+    onPrevious,
+    onNext,
+  }: {
+    page: number
+    totalPages: number
+    totalItems: number
+    onPrevious: () => void
+    onNext: () => void
+  }) => (
+    <div className="mt-4 flex items-center justify-between">
+      <div className="text-sm text-gray-700">
+        {t('transactions.showing')} {(page - 1) * ITEMS_PER_PAGE + 1}{' '}
+        {t('transactions.to')} {Math.min(page * ITEMS_PER_PAGE, totalItems)}{' '}
+        {t('transactions.of')} {totalItems} {t('transactions.items')}
+      </div>
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onPrevious}
+          disabled={page === 1}
+        >
+          {t('transactions.previous')}
+        </Button>
+        <span className="flex items-center px-4 text-sm">
+          {t('transactions.page')} {page} {t('transactions.of')} {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onNext}
+          disabled={page === totalPages}
+        >
+          {t('transactions.next')}
+        </Button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="flex w-full flex-col gap-6 rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
@@ -266,99 +412,67 @@ export function Budgets() {
                 </p>
               </div>
             ) : (
-              <div className="mt-4 space-y-1">
-                {paginatedItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="text-muted-foreground w-14 shrink-0 text-xs">
-                        {new Date(item.date).toLocaleDateString(undefined, {
-                          day: '2-digit',
-                          month: 'short',
-                          timeZone: 'UTC',
-                        })}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
-                          {item.description || item.categoryName}
-                        </p>
-                        <p className="text-muted-foreground text-xs">
-                          {item.categoryName}
-                          {item.subcategoryName && ` • ${item.subcategoryName}`}
-                        </p>
-                      </div>
+              <>
+                {occasionalItems.length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
+                      {t('budgets.occasionalExpenses')}
+                    </h3>
+                    <div className="space-y-1">
+                      {paginatedOccasionalItems.map((item) => (
+                        <BudgetItemRow
+                          key={item.id}
+                          item={item}
+                          isRecurring={false}
+                        />
+                      ))}
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-sm font-medium">
-                        ${formatMoney(item.amount, currency)}
-                      </span>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={() => {
-                          setEditingItem({
-                            id: item.id,
-                            categoryId: item.categoryId,
-                            subcategoryId: item.subcategoryId,
-                            date: item.date,
-                            amount: item.amount,
-                            description: item.description,
-                          })
-                          setDialogKey((k) => k + 1)
-                          setIsAddOpen(true)
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="text-destructive hover:text-destructive h-7 w-7"
-                        onClick={() => handleDelete(item.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                    {occasionalTotalPages > 1 && (
+                      <PaginationBar
+                        page={occasionalPageClamped}
+                        totalPages={occasionalTotalPages}
+                        totalItems={occasionalItems.length}
+                        onPrevious={() =>
+                          setOccasionalPage(occasionalPageClamped - 1)
+                        }
+                        onNext={() =>
+                          setOccasionalPage(occasionalPageClamped + 1)
+                        }
+                      />
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
+                )}
 
-            {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between">
-                <div className="text-sm text-gray-700">
-                  {t('transactions.showing')} {(page - 1) * ITEMS_PER_PAGE + 1}{' '}
-                  {t('transactions.to')}{' '}
-                  {Math.min(page * ITEMS_PER_PAGE, items.length)}{' '}
-                  {t('transactions.of')} {items.length}{' '}
-                  {t('transactions.items')}
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(page - 1)}
-                    disabled={page === 1}
-                  >
-                    {t('transactions.previous')}
-                  </Button>
-                  <span className="flex items-center px-4 text-sm">
-                    {t('transactions.page')} {page} {t('transactions.of')}{' '}
-                    {totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(page + 1)}
-                    disabled={page === totalPages}
-                  >
-                    {t('transactions.next')}
-                  </Button>
-                </div>
-              </div>
+                {recurringItems.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
+                      {t('budgets.recurringExpenses')}
+                    </h3>
+                    <div className="space-y-1">
+                      {paginatedRecurringItems.map((item) => (
+                        <BudgetItemRow
+                          key={item.id}
+                          item={item}
+                          isRecurring={true}
+                        />
+                      ))}
+                    </div>
+                    {recurringTotalPages > 1 && (
+                      <PaginationBar
+                        page={recurringPageClamped}
+                        totalPages={recurringTotalPages}
+                        totalItems={recurringItems.length}
+                        onPrevious={() =>
+                          setRecurringPage(recurringPageClamped - 1)
+                        }
+                        onNext={() =>
+                          setRecurringPage(recurringPageClamped + 1)
+                        }
+                      />
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
