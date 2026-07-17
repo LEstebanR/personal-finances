@@ -51,12 +51,14 @@ export function Debts() {
             <h3 className="truncate text-xl font-bold text-gray-900">
               {debt.name}
             </h3>
-            {debt.type === 'credit_card' && (
-              <Badge variant="secondary" className="mt-1 gap-1">
-                <CreditCard className="h-3 w-3" />
-                {t('debts.creditCard')}
-              </Badge>
-            )}
+            <div className="mt-1 h-5">
+              {debt.type === 'credit_card' && (
+                <Badge variant="secondary" className="gap-1">
+                  <CreditCard className="h-3 w-3" />
+                  {t('debts.creditCard')}
+                </Badge>
+              )}
+            </div>
           </div>
           <Button
             size="sm"
