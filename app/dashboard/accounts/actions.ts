@@ -43,3 +43,23 @@ export async function createAccount(formData: FormData) {
     currentBalance: Number(account.currentBalance),
   }
 }
+
+export async function updateAccountType(id: string, type: string) {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  await prisma.account.findFirstOrThrow({
+    where: { id, userId: session.user.id },
+  })
+
+  const account = await prisma.account.update({
+    where: { id },
+    data: { type },
+  })
+
+  return {
+    ...account,
+    initialBalance: Number(account.initialBalance),
+    currentBalance: Number(account.currentBalance),
+  }
+}

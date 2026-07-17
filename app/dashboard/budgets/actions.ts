@@ -440,6 +440,81 @@ export async function createRecurringExpense(formData: FormData) {
   return { ...item, amount: Number(item.amount) }
 }
 
+// Converts a plain (occasional) budget item into a recurring expense: the
+// submitted fields become the RecurringExpense's baseline, and this same
+// BudgetItem is linked to it as its first occurrence instead of a fresh one
+// being created, so ensureRecurringExpenseBudgetItems just picks up from here
+// going forward.
+export async function convertBudgetItemToRecurring(
+  id: string,
+  formData: FormData
+) {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  const categoryId = formData.get('categoryId') as string
+  const subcategoryId = (formData.get('subcategoryId') as string) || null
+  const amount = parseCurrencyInput(formData.get('amount'))
+  const name = ((formData.get('description') as string) || '').trim()
+  const frequency =
+    formData.get('frequency') === 'weekly' ? 'weekly' : 'monthly'
+  const date = new Date(formData.get('date') as string)
+
+  if (Number.isNaN(amount) || amount <= 0) {
+    throw new Error('Invalid amount')
+  }
+  if (!name) {
+    throw new Error('Name is required for a recurring expense')
+  }
+
+  const existing = await prisma.budgetItem.findFirstOrThrow({
+    where: { id, userId: session.user.id },
+  })
+  if (
+    existing.subscriptionId ||
+    existing.recurringExpenseId ||
+    existing.debtId
+  ) {
+    throw new Error('This item is already recurring')
+  }
+  await prisma.category.findFirstOrThrow({
+    where: { id: categoryId, userId: session.user.id },
+  })
+
+  const dueDay = frequency === 'monthly' ? date.getUTCDate() : null
+  const weekday = frequency === 'weekly' ? date.getUTCDay() : null
+
+  const item = await prisma.$transaction(async (tx) => {
+    const recurringExpense = await tx.recurringExpense.create({
+      data: {
+        userId: session.user.id,
+        name,
+        categoryId,
+        subcategoryId,
+        amount,
+        frequency,
+        dueDay,
+        weekday,
+        startDate: date,
+      },
+    })
+
+    return tx.budgetItem.update({
+      where: { id },
+      data: {
+        categoryId,
+        subcategoryId,
+        amount,
+        description: name,
+        date,
+        recurringExpenseId: recurringExpense.id,
+      },
+    })
+  })
+
+  return { ...item, amount: Number(item.amount) }
+}
+
 // Stops future occurrences (not-yet-arrived planned items) but keeps past
 // and current entries as history, mirroring how cancelling a Subscription
 // behaves.

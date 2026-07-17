@@ -48,5 +48,8 @@ export async function getOverviewData() {
       (total, debt) => total + Number(debt.remainingBalance),
       0
     ),
+    totalMinimumPayment: debts
+      .filter((debt) => Number(debt.remainingBalance) > 0)
+      .reduce((total, debt) => total + Number(debt.minimumPayment ?? 0), 0),
   }
 }

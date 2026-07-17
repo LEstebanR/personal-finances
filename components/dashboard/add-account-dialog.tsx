@@ -37,7 +37,7 @@ export function AddAccountDialog({
   onOpenChange: setControlledOpen,
 }: {
   trigger?: React.ReactNode
-  defaultType?: 'cash' | 'savings'
+  defaultType?: 'cash' | 'savings' | 'caja'
   open?: boolean
   onOpenChange?: (open: boolean) => void
 }) {
@@ -94,6 +94,7 @@ export function AddAccountDialog({
               <SelectContent>
                 <SelectItem value="cash">{t('accounts.cash')}</SelectItem>
                 <SelectItem value="savings">{t('accounts.savings')}</SelectItem>
+                <SelectItem value="caja">{t('accounts.caja')}</SelectItem>
               </SelectContent>
             </Select>
           </div>

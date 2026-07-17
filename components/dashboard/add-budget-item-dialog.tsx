@@ -2,6 +2,7 @@
 
 import {
   cancelRecurringExpense,
+  convertBudgetItemToRecurring,
   createBudgetItem,
   createRecurringExpense,
   updateBudgetItem,
@@ -43,6 +44,7 @@ export interface EditableBudgetItem {
   date: Date
   amount: number
   description: string
+  subscriptionId: string | null
   recurringExpenseId: string | null
   debtId: string | null
 }
@@ -71,6 +73,11 @@ export function AddBudgetItemDialog({
   const [categoryId, setCategoryId] = useState(item?.categoryId ?? '')
   const [isRecurring, setIsRecurring] = useState(false)
   const isEditing = !!item
+  const canConvertToRecurring =
+    isEditing &&
+    !item.subscriptionId &&
+    !item.recurringExpenseId &&
+    !item.debtId
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -79,8 +86,13 @@ export function AddBudgetItemDialog({
 
     try {
       if (item) {
-        await updateBudgetItem(item.id, formData)
-        toast.success(t('budgets.itemUpdated'))
+        if (isRecurring) {
+          await convertBudgetItemToRecurring(item.id, formData)
+          toast.success(t('budgets.convertedToRecurring'))
+        } else {
+          await updateBudgetItem(item.id, formData)
+          toast.success(t('budgets.itemUpdated'))
+        }
       } else if (isRecurring) {
         await createRecurringExpense(formData)
         toast.success(t('budgets.recurringExpenseCreated'))
@@ -169,11 +181,13 @@ export function AddBudgetItemDialog({
               defaultValue={item?.description}
             />
           </div>
-          {!isEditing && (
+          {(!isEditing || canConvertToRecurring) && (
             <div className="flex flex-col gap-3 rounded-md border p-3">
               <div className="flex items-center justify-between">
                 <Label htmlFor="isRecurring" className="font-normal">
-                  {t('budgets.isRecurring')}
+                  {isEditing
+                    ? t('budgets.convertToRecurring')
+                    : t('budgets.isRecurring')}
                 </Label>
                 <Switch
                   id="isRecurring"

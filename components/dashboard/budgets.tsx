@@ -22,6 +22,7 @@ import { toast } from 'sonner'
 
 import { Button } from '../ui/button'
 import { Calendar } from '../ui/calendar'
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '../ui/hover-card'
 import {
   AddBudgetItemDialog,
   type EditableBudgetItem,
@@ -60,8 +61,16 @@ const MONTH_KEYS = [
   'december',
 ] as const
 
+interface DayBudgetItem {
+  id: string
+  description: string
+  categoryName: string
+  amount: number
+}
+
 function BudgetDayButton({
   totals,
+  itemsByDay,
   currency,
   className,
   day,
@@ -69,11 +78,14 @@ function BudgetDayButton({
   ...props
 }: React.ComponentProps<typeof DayButton> & {
   totals: Map<string, number>
+  itemsByDay: Map<string, DayBudgetItem[]>
   currency: string
 }) {
-  const total = totals.get(localDateKey(day.date))
+  const key = localDateKey(day.date)
+  const total = totals.get(key)
+  const dayItems = itemsByDay.get(key)
 
-  return (
+  const button = (
     <Button
       variant="ghost"
       size="icon"
@@ -93,6 +105,39 @@ function BudgetDayButton({
         </span>
       ) : null}
     </Button>
+  )
+
+  if (!dayItems || dayItems.length === 0) return button
+
+  return (
+    <HoverCard openDelay={150}>
+      <HoverCardTrigger asChild>{button}</HoverCardTrigger>
+      <HoverCardContent className="w-64">
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium">
+            {day.date.toLocaleDateString(undefined, {
+              day: '2-digit',
+              month: 'long',
+            })}
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {dayItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between gap-2 text-xs"
+              >
+                <span className="text-muted-foreground truncate">
+                  {item.description || item.categoryName}
+                </span>
+                <span className="shrink-0 font-medium">
+                  ${formatMoney(item.amount, currency)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </HoverCardContent>
+    </HoverCard>
   )
 }
 
@@ -123,13 +168,22 @@ export function Budgets() {
     useBudgetOverview(month, year)
   const loading = loadingItems || loadingOverview
 
-  const dailyTotals = useMemo(() => {
-    const map = new Map<string, number>()
+  const { dailyTotals, itemsByDay } = useMemo(() => {
+    const totals = new Map<string, number>()
+    const byDay = new Map<string, DayBudgetItem[]>()
     for (const item of items) {
       const key = dbDateKey(item.date)
-      map.set(key, (map.get(key) ?? 0) + item.amount)
+      totals.set(key, (totals.get(key) ?? 0) + item.amount)
+      const dayItems = byDay.get(key) ?? []
+      dayItems.push({
+        id: item.id,
+        description: item.description,
+        categoryName: item.categoryName,
+        amount: item.amount,
+      })
+      byDay.set(key, dayItems)
     }
-    return map
+    return { dailyTotals: totals, itemsByDay: byDay }
   }, [items])
 
   const goToPreviousMonth = () => {
@@ -215,6 +269,7 @@ export function Budgets() {
       date: item.date,
       amount: item.amount,
       description: item.description,
+      subscriptionId: item.subscriptionId,
       recurringExpenseId: item.recurringExpenseId,
       debtId: item.debtId,
     })
@@ -389,6 +444,7 @@ export function Budgets() {
                   <BudgetDayButton
                     {...props}
                     totals={dailyTotals}
+                    itemsByDay={itemsByDay}
                     currency={currency}
                   />
                 ),

@@ -4,9 +4,11 @@ export function getCurrencyDecimals(currency: string): number {
   return ZERO_DECIMAL_CURRENCIES.has(currency.toLowerCase()) ? 0 : 2
 }
 
+// Negative amounts are conveyed with color by callers, not a "-" sign, so
+// this always formats the magnitude.
 export function formatMoney(amount: number, currency: string): string {
   const decimals = getCurrencyDecimals(currency)
-  return amount.toLocaleString('en-US', {
+  return Math.abs(amount).toLocaleString('en-US', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   })

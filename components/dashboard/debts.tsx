@@ -45,7 +45,7 @@ export function Debts() {
     const isPaidOff = debt.remainingBalance <= 0
 
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
         <div className="mb-4 flex items-start justify-between">
           <div>
             <h3 className="truncate text-xl font-bold text-gray-900">
@@ -124,14 +124,16 @@ export function Debts() {
         )}
 
         {!isPaidOff && (
-          <AddDebtPaymentDialog
-            debt={debt}
-            trigger={
-              <Button className="w-full" size="sm">
-                {t('debts.recordPayment')}
-              </Button>
-            }
-          />
+          <div className="mt-auto pt-2">
+            <AddDebtPaymentDialog
+              debt={debt}
+              trigger={
+                <Button className="w-full" size="sm">
+                  {t('debts.recordPayment')}
+                </Button>
+              }
+            />
+          </div>
         )}
       </div>
     )
@@ -181,9 +183,11 @@ export function Debts() {
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-            {debts.map((debt) => (
-              <DebtCard key={debt.id} debt={debt} />
-            ))}
+            {[...debts]
+              .sort((a, b) => b.remainingBalance - a.remainingBalance)
+              .map((debt) => (
+                <DebtCard key={debt.id} debt={debt} />
+              ))}
           </div>
         )}
       </div>

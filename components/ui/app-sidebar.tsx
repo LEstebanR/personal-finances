@@ -21,6 +21,7 @@ import {
   PiggyBank,
   Repeat,
   Settings,
+  TrendingUp,
   User,
   Wallet,
 } from 'lucide-react'
@@ -50,6 +51,11 @@ export function AppSidebar() {
       icon: <Repeat />,
       label: t('nav.subscriptions'),
       href: '?subscriptions',
+    },
+    {
+      icon: <TrendingUp />,
+      label: t('nav.spendingTrends'),
+      href: '?spending-trends',
     },
   ]
 

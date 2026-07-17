@@ -303,9 +303,7 @@ export function Transactions() {
                                   {item.itemType === 'transaction' &&
                                   item.type === 'income'
                                     ? '+'
-                                    : item.itemType === 'transaction'
-                                      ? '-'
-                                      : ''}
+                                    : ''}
                                   ${formatMoney(Number(item.amount), currency)}
                                 </TableCell>
                                 <TableCell>

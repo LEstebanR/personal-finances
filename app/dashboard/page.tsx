@@ -6,6 +6,7 @@ import { Debts } from '@/components/dashboard/debts'
 import { Overview } from '@/components/dashboard/overview'
 import { Profile } from '@/components/dashboard/profile'
 import { Settings } from '@/components/dashboard/settings'
+import { SpendingTrends } from '@/components/dashboard/spending-trends'
 import { Subscriptions } from '@/components/dashboard/subscriptions'
 import { Transactions } from '@/components/dashboard/transactions'
 import { useSearchParams } from 'next/navigation'
@@ -21,6 +22,7 @@ export default function Dashboard() {
       {currentView === 'debts' && <Debts />}
       {currentView === 'budget' && <Budgets />}
       {currentView === 'subscriptions' && <Subscriptions />}
+      {currentView === 'spending-trends' && <SpendingTrends />}
       {currentView === 'overview' && <Overview />}
       {currentView === 'profile' && <Profile />}
       {currentView === 'settings' && <Settings />}

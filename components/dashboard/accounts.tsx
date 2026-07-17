@@ -4,11 +4,13 @@ import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
 import { useAccounts } from '@/lib/queries'
-import { Loader, PiggyBank, PlusIcon, Wallet } from 'lucide-react'
+import { Loader, Lock, Pencil, PiggyBank, PlusIcon, Wallet } from 'lucide-react'
+import { useState } from 'react'
 
 import { Button } from '../ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { AddAccountDialog } from './add-account-dialog'
+import { EditAccountTypeDialog } from './edit-account-type-dialog'
 
 interface Account {
   id: string
@@ -26,16 +28,22 @@ export function Accounts() {
   const currency = useCurrency()
   const { t } = useLanguage()
   const { data: accounts = [], isLoading: loading } = useAccounts()
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null)
 
-  const filterAccountsByType = (type: 'all' | 'cash' | 'savings') => {
-    if (type === 'all') return accounts
-    return accounts.filter((account) => account.type === type)
+  const filterAccountsByType = (type: 'all' | 'cash' | 'savings' | 'caja') => {
+    const filtered =
+      type === 'all' ? accounts : accounts.filter((a) => a.type === type)
+    return [...filtered].sort((a, b) => b.currentBalance - a.currentBalance)
+  }
+
+  const getAccountTypeMeta = (type: string) => {
+    if (type === 'cash') return { Icon: Wallet, label: t('accounts.cash') }
+    if (type === 'caja') return { Icon: Lock, label: t('accounts.caja') }
+    return { Icon: PiggyBank, label: t('accounts.savings') }
   }
 
   const AccountCard = ({ account }: { account: Account }) => {
-    const Icon = account.type === 'cash' ? Wallet : PiggyBank
-    const typeLabel =
-      account.type === 'cash' ? t('accounts.cash') : t('accounts.savings')
+    const { Icon, label: typeLabel } = getAccountTypeMeta(account.type)
 
     return (
       <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
@@ -48,6 +56,14 @@ export function Accounts() {
               {typeLabel}
             </span>
           </div>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7"
+            onClick={() => setEditingAccount(account)}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
         </div>
 
         <h3 className="mb-2 truncate text-xl font-bold text-gray-900">
@@ -58,7 +74,11 @@ export function Accounts() {
           <p className="mb-1 text-sm text-gray-500">
             {t('accounts.currentBalance')}
           </p>
-          <p className="text-3xl font-bold text-gray-900">
+          <p
+            className={`text-3xl font-bold ${
+              account.currentBalance < 0 ? 'text-red-600' : 'text-gray-900'
+            }`}
+          >
             ${formatMoney(Number(account.currentBalance), currency)}
           </p>
         </div>
@@ -66,18 +86,18 @@ export function Accounts() {
     )
   }
 
-  const EmptyState = ({ type }: { type: 'all' | 'cash' | 'savings' }) => {
-    const Icon = type === 'cash' ? Wallet : PiggyBank
+  const EmptyState = ({
+    type,
+  }: {
+    type: 'all' | 'cash' | 'savings' | 'caja'
+  }) => {
+    const EmptyIcon = type === 'all' ? Wallet : getAccountTypeMeta(type).Icon
     const typeLabel =
-      type === 'cash'
-        ? t('accounts.cash')
-        : type === 'savings'
-          ? t('accounts.savings')
-          : t('accounts.all')
+      type === 'all' ? t('accounts.all') : getAccountTypeMeta(type).label
 
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <Icon className="mb-4 h-16 w-16 text-gray-300" />
+        <EmptyIcon className="mb-4 h-16 w-16 text-gray-300" />
         <h3 className="mb-2 text-lg font-semibold text-gray-900">
           {t('accounts.noAccountsYet', { type: typeLabel })}
         </h3>
@@ -118,7 +138,7 @@ export function Accounts() {
           <EmptyState type="all" />
         ) : (
           <Tabs defaultValue="all" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="all">
                 {t('accounts.all')} ({accounts.length})
               </TabsTrigger>
@@ -128,6 +148,9 @@ export function Accounts() {
               <TabsTrigger value="savings">
                 {t('accounts.savings')} (
                 {filterAccountsByType('savings').length})
+              </TabsTrigger>
+              <TabsTrigger value="caja">
+                {t('accounts.caja')} ({filterAccountsByType('caja').length})
               </TabsTrigger>
             </TabsList>
 
@@ -162,9 +185,29 @@ export function Accounts() {
                 </div>
               )}
             </TabsContent>
+
+            <TabsContent value="caja" className="mt-6">
+              {filterAccountsByType('caja').length === 0 ? (
+                <EmptyState type="caja" />
+              ) : (
+                <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+                  {filterAccountsByType('caja').map((account) => (
+                    <AccountCard key={account.id} account={account} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
           </Tabs>
         )}
       </div>
+
+      <EditAccountTypeDialog
+        account={editingAccount}
+        open={!!editingAccount}
+        onOpenChange={(open) => {
+          if (!open) setEditingAccount(null)
+        }}
+      />
     </div>
   )
 }

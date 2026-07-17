@@ -9,6 +9,7 @@ import {
 } from '@/app/dashboard/categories/actions'
 import { getDebts } from '@/app/dashboard/debts/actions'
 import { getOverviewData } from '@/app/dashboard/overview/actions'
+import { getCategoryMonthlyTotals } from '@/app/dashboard/spending-trends/actions'
 import { getSubscriptions } from '@/app/dashboard/subscriptions/actions'
 import {
   getTransactions,
@@ -29,6 +30,8 @@ export const queryKeys = {
     ['budget-overview', month, year] as const,
   budgetItems: (month: number, year: number) =>
     ['budget-items', month, year] as const,
+  categoryMonthlyTotals: (year: number) =>
+    ['category-monthly-totals', year] as const,
 }
 
 export function useAccounts() {
@@ -87,5 +90,12 @@ export function useBudgetItems(month: number, year: number) {
   return useQuery({
     queryKey: queryKeys.budgetItems(month, year),
     queryFn: () => getBudgetItems(month, year),
+  })
+}
+
+export function useCategoryMonthlyTotals(year: number) {
+  return useQuery({
+    queryKey: queryKeys.categoryMonthlyTotals(year),
+    queryFn: () => getCategoryMonthlyTotals(year),
   })
 }

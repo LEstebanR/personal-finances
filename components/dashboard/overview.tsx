@@ -11,6 +11,7 @@ import {
 import {
   DollarSign,
   Landmark,
+  Lock,
   PiggyBank,
   TrendingDown,
   TrendingUp,
@@ -99,6 +100,7 @@ export function Overview() {
   const transactions = overviewData?.transactions ?? EMPTY_ARRAY
   const transfers = overviewData?.transfers ?? EMPTY_ARRAY
   const totalDebt = overviewData?.totalDebt ?? 0
+  const totalMinimumPayment = overviewData?.totalMinimumPayment ?? 0
   const loading = loadingOverview || loadingBudget || loadingCashFlow
   const recentItems = useMemo(() => {
     const accountMap = new Map<string, string>()
@@ -134,6 +136,28 @@ export function Overview() {
       0
     )
   }
+
+  // Only cash/savings accounts count as money on hand for the month-end
+  // projection below — debt-type accounts aren't liquid funds.
+  const availableBalance = accounts
+    .filter((account) => account.type === 'cash' || account.type === 'savings')
+    .reduce((total, account) => total + (account.currentBalance || 0), 0)
+
+  // Sum of this month's planned expenses still ahead (today included),
+  // vs. what's currently sitting in cash/savings. Positive means the
+  // planned expenses outrun what's on hand; negative means there's a
+  // surplus for the rest of the month.
+  const getRemainingPlannedExpenses = () => {
+    const today = new Date()
+    const todayUtcMidnight = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+    )
+    return monthBudgetItems
+      .filter((item) => new Date(item.date) >= todayUtcMidnight)
+      .reduce((sum, item) => sum + item.amount, 0)
+  }
+
+  const monthEndShortfall = getRemainingPlannedExpenses() - availableBalance
 
   const getMonthlyStats = () => {
     const currentMonth = new Date().getMonth()
@@ -291,7 +315,7 @@ export function Overview() {
       <div className="w-full space-y-6">
         <h1 className="text-2xl font-bold">{t('overview.title')}</h1>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -300,7 +324,11 @@ export function Overview() {
               <DollarSign className="text-muted-foreground h-4 w-4" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div
+                className={`text-2xl font-bold ${
+                  getTotalBalance() < 0 ? 'text-red-600' : ''
+                }`}
+              >
                 ${formatMoney(getTotalBalance(), currency)}
               </div>
               <p className="text-muted-foreground text-xs">
@@ -338,7 +366,7 @@ export function Overview() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-red-600">
-                -${formatMoney(monthlyStats.expenses, currency)}
+                ${formatMoney(monthlyStats.expenses, currency)}
               </div>
               <p className="text-muted-foreground text-xs">
                 {t('overview.thisMonth')}
@@ -386,6 +414,52 @@ export function Overview() {
               </div>
               <p className="text-muted-foreground text-xs">
                 {t('overview.outstanding')}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {t('overview.totalMinimumPayments')}
+              </CardTitle>
+              <Landmark className="text-muted-foreground h-4 w-4" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${formatMoney(totalMinimumPayment, currency)}
+              </div>
+              <p className="text-muted-foreground text-xs">
+                {t('overview.perMonth')}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {t('overview.monthEndProjection')}
+              </CardTitle>
+              <Wallet
+                className={`h-4 w-4 ${
+                  monthEndShortfall > 0
+                    ? 'text-red-600'
+                    : 'text-muted-foreground'
+                }`}
+              />
+            </CardHeader>
+            <CardContent>
+              <div
+                className={`text-2xl font-bold ${
+                  monthEndShortfall > 0 ? 'text-red-600' : 'text-green-600'
+                }`}
+              >
+                ${formatMoney(Math.abs(monthEndShortfall), currency)}
+              </div>
+              <p className="text-muted-foreground text-xs">
+                {monthEndShortfall > 0
+                  ? t('overview.monthEndShortfall')
+                  : t('overview.monthEndSurplus')}
               </p>
             </CardContent>
           </Card>
@@ -671,9 +745,7 @@ export function Overview() {
                         {item.itemType === 'transaction' &&
                         item.type === 'income'
                           ? '+'
-                          : item.itemType === 'transaction'
-                            ? '-'
-                            : ''}
+                          : ''}
                         ${formatMoney(Number(item.amount), currency)}
                       </p>
                       <p className="text-muted-foreground text-sm">
@@ -706,41 +778,54 @@ export function Overview() {
               </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {accounts.map((account) => {
-                  const Icon = account.type === 'cash' ? Wallet : PiggyBank
-                  return (
-                    <div
-                      key={account.id}
-                      className="rounded-lg border border-gray-200 p-4"
-                    >
-                      <div className="mb-3 flex items-center space-x-3">
-                        <div className="bg-primary/10 rounded-lg p-2">
-                          <Icon className="text-primary h-4 w-4" />
+                {[...accounts]
+                  .sort((a, b) => b.currentBalance - a.currentBalance)
+                  .map((account) => {
+                    const Icon =
+                      account.type === 'cash'
+                        ? Wallet
+                        : account.type === 'caja'
+                          ? Lock
+                          : PiggyBank
+                    return (
+                      <div
+                        key={account.id}
+                        className="rounded-lg border border-gray-200 p-4"
+                      >
+                        <div className="mb-3 flex items-center space-x-3">
+                          <div className="bg-primary/10 rounded-lg p-2">
+                            <Icon className="text-primary h-4 w-4" />
+                          </div>
+                          <div>
+                            <h3 className="truncate font-semibold">
+                              {account.name}
+                            </h3>
+                            <span className="text-primary bg-primary/10 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize">
+                              {account.type}
+                            </span>
+                          </div>
                         </div>
                         <div>
-                          <h3 className="truncate font-semibold">
-                            {account.name}
-                          </h3>
-                          <span className="text-primary bg-primary/10 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize">
-                            {account.type}
-                          </span>
+                          <p className="text-muted-foreground mb-1 text-sm">
+                            {t('overview.balance')}
+                          </p>
+                          <p
+                            className={`text-xl font-bold ${
+                              Number(account.currentBalance) < 0
+                                ? 'text-red-600'
+                                : ''
+                            }`}
+                          >
+                            $
+                            {formatMoney(
+                              Number(account.currentBalance),
+                              currency
+                            )}
+                          </p>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground mb-1 text-sm">
-                          {t('overview.balance')}
-                        </p>
-                        <p className="text-xl font-bold">
-                          $
-                          {formatMoney(
-                            Number(account.currentBalance),
-                            currency
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
               </div>
             )}
           </CardContent>
