@@ -347,9 +347,9 @@ export function Budgets() {
   }) => (
     <div className="mt-4 flex items-center justify-between">
       <div className="text-sm text-gray-700">
-        {t('transactions.showing')} {(page - 1) * ITEMS_PER_PAGE + 1}{' '}
-        {t('transactions.to')} {Math.min(page * ITEMS_PER_PAGE, totalItems)}{' '}
-        {t('transactions.of')} {totalItems} {t('transactions.items')}
+        {(page - 1) * ITEMS_PER_PAGE + 1}–
+        {Math.min(page * ITEMS_PER_PAGE, totalItems)} {t('transactions.of')}{' '}
+        {totalItems}
       </div>
       <div className="flex gap-2">
         <Button

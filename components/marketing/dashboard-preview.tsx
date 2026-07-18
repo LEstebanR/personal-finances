@@ -4,7 +4,7 @@ import { useLanguage } from '@/components/language-provider'
 import { ArrowLeftRight, TrendingDown, TrendingUp } from 'lucide-react'
 
 const formatAmount = (amount: number) =>
-  amount.toLocaleString('en-US', {
+  amount.toLocaleString('es-CO', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })

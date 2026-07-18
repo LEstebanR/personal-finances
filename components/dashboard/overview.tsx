@@ -2,6 +2,7 @@
 
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
+import { getAccountIcon } from '@/lib/account-icons'
 import { formatMoney } from '@/lib/currency'
 import {
   useBudgetItems,
@@ -17,6 +18,7 @@ import {
   TrendingUp,
   Wallet,
 } from 'lucide-react'
+import Link from 'next/link'
 import { useMemo } from 'react'
 import {
   CartesianGrid,
@@ -317,7 +319,7 @@ export function Overview() {
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 {t('overview.totalBalance')}
               </CardTitle>
@@ -341,7 +343,7 @@ export function Overview() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 {t('overview.monthlyIncome')}
               </CardTitle>
@@ -358,7 +360,7 @@ export function Overview() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 {t('overview.monthlyExpenses')}
               </CardTitle>
@@ -375,7 +377,7 @@ export function Overview() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 {t('overview.netIncome')}
               </CardTitle>
@@ -402,7 +404,7 @@ export function Overview() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 {t('overview.totalDebt')}
               </CardTitle>
@@ -419,7 +421,7 @@ export function Overview() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 {t('overview.totalMinimumPayments')}
               </CardTitle>
@@ -436,7 +438,7 @@ export function Overview() {
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
                 {t('overview.monthEndProjection')}
               </CardTitle>
@@ -465,59 +467,61 @@ export function Overview() {
           </Card>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('overview.budgetProgress')}</CardTitle>
-            <CardDescription>
-              {t('overview.budgetProgressDesc')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {budgetedItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <span className="mb-2 text-4xl">🎯</span>
-                <p className="text-muted-foreground">
-                  {t('overview.noBudgetYet')}
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div>
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="font-medium">
-                      ${formatMoney(totalBudgetSpent, currency)} / $
-                      {formatMoney(totalBudgeted, currency)}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {Math.round(budgetPercent)}%
-                    </span>
-                  </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                    <div
-                      className={`h-full rounded-full ${
-                        totalBudgetSpent > totalBudgeted
-                          ? 'bg-red-500'
-                          : budgetPercent >= 80
-                            ? 'bg-yellow-500'
-                            : 'bg-primary'
-                      }`}
-                      style={{ width: `${budgetPercent}%` }}
-                    />
-                  </div>
-                </div>
-                {overBudgetCategories.length > 0 && (
-                  <p className="text-xs text-red-600">
-                    {t('overview.overBudgetIn', {
-                      categories: overBudgetCategories
-                        .map((c) => c.categoryName)
-                        .join(', '),
-                    })}
+        <Link href="?budget" className="block">
+          <Card className="transition-shadow hover:shadow-md">
+            <CardHeader>
+              <CardTitle>{t('overview.budgetProgress')}</CardTitle>
+              <CardDescription>
+                {t('overview.budgetProgressDesc')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {budgetedItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <span className="mb-2 text-4xl">🎯</span>
+                  <p className="text-muted-foreground">
+                    {t('overview.noBudgetYet')}
                   </p>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between text-sm">
+                      <span className="font-medium">
+                        ${formatMoney(totalBudgetSpent, currency)} / $
+                        {formatMoney(totalBudgeted, currency)}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {Math.round(budgetPercent)}%
+                      </span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                      <div
+                        className={`h-full rounded-full ${
+                          totalBudgetSpent > totalBudgeted
+                            ? 'bg-red-500'
+                            : budgetPercent >= 80
+                              ? 'bg-yellow-500'
+                              : 'bg-primary'
+                        }`}
+                        style={{ width: `${budgetPercent}%` }}
+                      />
+                    </div>
+                  </div>
+                  {overBudgetCategories.length > 0 && (
+                    <p className="text-xs text-red-600">
+                      {t('overview.overBudgetIn', {
+                        categories: overBudgetCategories
+                          .map((c) => c.categoryName)
+                          .join(', '),
+                      })}
+                    </p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
 
         <Card>
           <CardHeader>
@@ -781,49 +785,68 @@ export function Overview() {
                 {[...accounts]
                   .sort((a, b) => b.currentBalance - a.currentBalance)
                   .map((account) => {
-                    const Icon =
+                    const TypeIcon =
                       account.type === 'cash'
                         ? Wallet
                         : account.type === 'caja'
                           ? Lock
                           : PiggyBank
+                    const Icon = getAccountIcon(account.icon) ?? TypeIcon
+                    const typeLabel =
+                      account.type === 'cash'
+                        ? t('accounts.cash')
+                        : account.type === 'caja'
+                          ? t('accounts.caja')
+                          : t('accounts.savings')
                     return (
-                      <div
+                      <Link
                         key={account.id}
-                        className="rounded-lg border border-gray-200 p-4"
+                        href={`?account&id=${account.id}`}
+                        className="block"
                       >
-                        <div className="mb-3 flex items-center space-x-3">
-                          <div className="bg-primary/10 rounded-lg p-2">
-                            <Icon className="text-primary h-4 w-4" />
-                          </div>
-                          <div>
-                            <h3 className="truncate font-semibold">
+                        <Card className="transition-shadow hover:shadow-md">
+                          <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="truncate text-sm font-medium">
                               {account.name}
-                            </h3>
-                            <span className="text-primary bg-primary/10 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize">
-                              {account.type}
-                            </span>
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground mb-1 text-sm">
-                            {t('overview.balance')}
-                          </p>
-                          <p
-                            className={`text-xl font-bold ${
-                              Number(account.currentBalance) < 0
-                                ? 'text-red-600'
-                                : ''
-                            }`}
-                          >
-                            $
-                            {formatMoney(
-                              Number(account.currentBalance),
-                              currency
+                            </CardTitle>
+                            {account.logoUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element -- external/dynamic logo domains, not worth remotePatterns config
+                              <img
+                                src={account.logoUrl}
+                                alt=""
+                                className="h-4 w-4 shrink-0 object-contain"
+                              />
+                            ) : (
+                              <Icon
+                                className="text-muted-foreground h-4 w-4 shrink-0"
+                                style={
+                                  account.color
+                                    ? { color: account.color }
+                                    : undefined
+                                }
+                              />
                             )}
-                          </p>
-                        </div>
-                      </div>
+                          </CardHeader>
+                          <CardContent>
+                            <div
+                              className={`text-2xl font-bold ${
+                                Number(account.currentBalance) < 0
+                                  ? 'text-red-600'
+                                  : ''
+                              }`}
+                            >
+                              $
+                              {formatMoney(
+                                Number(account.currentBalance),
+                                currency
+                              )}
+                            </div>
+                            <p className="text-muted-foreground text-xs">
+                              {typeLabel}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </Link>
                     )
                   })}
               </div>

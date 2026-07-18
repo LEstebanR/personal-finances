@@ -34,30 +34,36 @@ export function QuickAddFab() {
         <DropdownMenuTrigger asChild>
           <Button
             size="icon"
-            className="fixed right-6 bottom-6 z-50 h-14 w-14 rounded-full shadow-lg"
+            className="fixed right-6 bottom-6 z-50 h-16 w-16 rounded-full shadow-lg md:h-14 md:w-14"
           >
-            <PlusIcon className="size-6" />
+            <PlusIcon className="size-7 md:size-6" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="end"
           side="top"
           onCloseAutoFocus={(e) => e.preventDefault()}
+          className="min-w-72 p-2 md:min-w-[8rem] md:p-1"
         >
           <DropdownMenuItem
             onSelect={() => openAfterMenuCloses(setIsTransactionOpen)}
+            className="gap-4 px-4 py-4 text-lg md:gap-2 md:px-2 md:py-1.5 md:text-sm [&_svg]:size-6 md:[&_svg]:size-4"
           >
-            <CreditCard className="h-4 w-4" />
+            <CreditCard />
             {t('transactions.addTransaction')}
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={() => openAfterMenuCloses(setIsAccountOpen)}
+            className="gap-4 px-4 py-4 text-lg md:gap-2 md:px-2 md:py-1.5 md:text-sm [&_svg]:size-6 md:[&_svg]:size-4"
           >
-            <Wallet className="h-4 w-4" />
+            <Wallet />
             {t('accounts.addAccount')}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => openAfterMenuCloses(setIsDebtOpen)}>
-            <Landmark className="h-4 w-4" />
+          <DropdownMenuItem
+            onSelect={() => openAfterMenuCloses(setIsDebtOpen)}
+            className="gap-4 px-4 py-4 text-lg md:gap-2 md:px-2 md:py-1.5 md:text-sm [&_svg]:size-6 md:[&_svg]:size-4"
+          >
+            <Landmark />
             {t('debts.addDebt')}
           </DropdownMenuItem>
         </DropdownMenuContent>

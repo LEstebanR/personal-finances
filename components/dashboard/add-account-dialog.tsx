@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from '../ui/select'
 import { Textarea } from '../ui/textarea'
+import { AccountAppearancePicker } from './account-appearance-picker'
 import { useDashboardRefresh } from './refresh-provider'
 
 export function AddAccountDialog({
@@ -48,6 +49,17 @@ export function AddAccountDialog({
   const isOpen = controlledOpen ?? internalOpen
   const setIsOpen = setControlledOpen ?? setInternalOpen
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [accountName, setAccountName] = useState('')
+  const [color, setColor] = useState<string | null>(null)
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [icon, setIcon] = useState<string | null>(null)
+
+  const resetAppearance = () => {
+    setAccountName('')
+    setColor(null)
+    setLogoUrl(null)
+    setIcon(null)
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -63,6 +75,7 @@ export function AddAccountDialog({
       })
       triggerRefresh()
       e.currentTarget?.reset()
+      resetAppearance()
       setIsOpen(false)
     } catch (error) {
       console.error('Insert error:', error)
@@ -83,7 +96,13 @@ export function AddAccountDialog({
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           <div className="flex flex-col gap-1">
             <Label>{t('accounts.accountName')}</Label>
-            <Input type="text" name="accountName" required />
+            <Input
+              type="text"
+              name="accountName"
+              required
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+            />
           </div>
           <div className="flex flex-col gap-1">
             <Label>{t('accounts.accountType')}</Label>
@@ -106,6 +125,18 @@ export function AddAccountDialog({
             <Label>{t('accounts.description')}</Label>
             <Textarea name="description" className="resize-none" />
           </div>
+          <AccountAppearancePicker
+            accountName={accountName}
+            color={color}
+            onColorChange={setColor}
+            logoUrl={logoUrl}
+            onLogoChange={setLogoUrl}
+            icon={icon}
+            onIconChange={setIcon}
+          />
+          <input type="hidden" name="color" value={color ?? ''} />
+          <input type="hidden" name="logoUrl" value={logoUrl ?? ''} />
+          <input type="hidden" name="icon" value={icon ?? ''} />
           <Button className="w-full" type="submit" disabled={isSubmitting}>
             {isSubmitting ? (
               <>

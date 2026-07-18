@@ -3,14 +3,17 @@
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
+import { getAccountIcon } from '@/lib/account-icons'
 import { useAccounts } from '@/lib/queries'
+import { cn } from '@/lib/utils'
 import { Loader, Lock, Pencil, PiggyBank, PlusIcon, Wallet } from 'lucide-react'
+import Link from 'next/link'
 import { useState } from 'react'
 
 import { Button } from '../ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { AddAccountDialog } from './add-account-dialog'
-import { EditAccountTypeDialog } from './edit-account-type-dialog'
+import { EditAccountDialog } from './edit-account-dialog'
 
 interface Account {
   id: string
@@ -20,6 +23,9 @@ interface Account {
   initialBalance: number
   currentBalance: number
   description: string | null
+  color: string | null
+  logoUrl: string | null
+  icon: string | null
   createdAt: Date
   isArchived: boolean
 }
@@ -43,15 +49,49 @@ export function Accounts() {
   }
 
   const AccountCard = ({ account }: { account: Account }) => {
-    const { Icon, label: typeLabel } = getAccountTypeMeta(account.type)
+    const { Icon: TypeIcon, label: typeLabel } = getAccountTypeMeta(
+      account.type
+    )
+    const Icon = getAccountIcon(account.icon) ?? TypeIcon
 
     return (
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+      <div
+        className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
+        style={
+          account.color
+            ? {
+                borderLeftColor: account.color,
+                borderLeftWidth: '4px',
+              }
+            : undefined
+        }
+      >
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-primary/10 rounded-lg p-2">
-              <Icon className="text-primary h-5 w-5" />
-            </div>
+            {account.logoUrl ? (
+              <div className="bg-muted h-9 w-9 overflow-hidden rounded-lg border">
+                {/* eslint-disable-next-line @next/next/no-img-element -- external/dynamic logo domains, not worth remotePatterns config */}
+                <img
+                  src={account.logoUrl}
+                  alt=""
+                  className="h-full w-full object-contain"
+                />
+              </div>
+            ) : (
+              <div
+                className={cn('rounded-lg p-2', !account.color && 'bg-primary/10')}
+                style={
+                  account.color
+                    ? { backgroundColor: `${account.color}26` }
+                    : undefined
+                }
+              >
+                <Icon
+                  className={cn('h-5 w-5', !account.color && 'text-primary')}
+                  style={account.color ? { color: account.color } : undefined}
+                />
+              </div>
+            )}
             <span className="text-primary bg-primary/10 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium">
               {typeLabel}
             </span>
@@ -66,22 +106,24 @@ export function Accounts() {
           </Button>
         </div>
 
-        <h3 className="mb-2 truncate text-xl font-bold text-gray-900">
-          {account.name}
-        </h3>
+        <Link href={`?account&id=${account.id}`} className="block">
+          <h3 className="mb-2 truncate text-xl font-bold text-gray-900">
+            {account.name}
+          </h3>
 
-        <div className="mb-4">
-          <p className="mb-1 text-sm text-gray-500">
-            {t('accounts.currentBalance')}
-          </p>
-          <p
-            className={`text-3xl font-bold ${
-              account.currentBalance < 0 ? 'text-red-600' : 'text-gray-900'
-            }`}
-          >
-            ${formatMoney(Number(account.currentBalance), currency)}
-          </p>
-        </div>
+          <div className="mb-4">
+            <p className="mb-1 text-sm text-gray-500">
+              {t('accounts.currentBalance')}
+            </p>
+            <p
+              className={`text-3xl font-bold ${
+                account.currentBalance < 0 ? 'text-red-600' : 'text-gray-900'
+              }`}
+            >
+              ${formatMoney(Number(account.currentBalance), currency)}
+            </p>
+          </div>
+        </Link>
       </div>
     )
   }
@@ -201,7 +243,7 @@ export function Accounts() {
         )}
       </div>
 
-      <EditAccountTypeDialog
+      <EditAccountDialog
         account={editingAccount}
         open={!!editingAccount}
         onOpenChange={(open) => {

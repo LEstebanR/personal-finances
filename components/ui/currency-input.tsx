@@ -1,7 +1,11 @@
 'use client'
 
 import { useCurrency } from '@/components/currency-provider'
-import { formatCurrencyInput, getCurrencyDecimals } from '@/lib/currency'
+import {
+  formatCurrencyInput,
+  formatStoredAmount,
+  getCurrencyDecimals,
+} from '@/lib/currency'
 import { useState } from 'react'
 
 import { Input } from './input'
@@ -24,7 +28,7 @@ export function CurrencyInput({
   const currency = useCurrency()
   const decimals = getCurrencyDecimals(currency)
   const [value, setValue] = useState(
-    defaultValue ? formatCurrencyInput(defaultValue, decimals) : ''
+    defaultValue ? formatStoredAmount(defaultValue, decimals) : ''
   )
 
   return (

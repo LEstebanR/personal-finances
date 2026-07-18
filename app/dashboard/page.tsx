@@ -1,5 +1,6 @@
 'use client'
 
+import { AccountDetail } from '@/components/dashboard/account-detail'
 import { Accounts } from '@/components/dashboard/accounts'
 import { Budgets } from '@/components/dashboard/budgets'
 import { Debts } from '@/components/dashboard/debts'
@@ -18,6 +19,7 @@ export default function Dashboard() {
   return (
     <div className="flex w-full flex-col items-center justify-center">
       {currentView === 'accounts' && <Accounts />}
+      {currentView === 'account' && <AccountDetail />}
       {currentView === 'transactions' && <Transactions />}
       {currentView === 'debts' && <Debts />}
       {currentView === 'budget' && <Budgets />}

@@ -3,6 +3,7 @@
 import { parseCurrencyInput } from '@/lib/currency'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
+import { put } from '@vercel/blob'
 
 export async function getAccounts() {
   const session = await getServerSession()
@@ -34,6 +35,9 @@ export async function createAccount(formData: FormData) {
       initialBalance,
       currentBalance: initialBalance,
       description: (formData.get('description') as string) || null,
+      color: (formData.get('color') as string) || null,
+      logoUrl: (formData.get('logoUrl') as string) || null,
+      icon: (formData.get('icon') as string) || null,
     },
   })
 
@@ -44,7 +48,34 @@ export async function createAccount(formData: FormData) {
   }
 }
 
-export async function updateAccountType(id: string, type: string) {
+// Uploaded logos are stored publicly (not namespaced per user) so the same
+// blob URL can be reused across accounts/users like the suggested bank
+// logos from the public logo API.
+export async function uploadAccountLogo(formData: FormData) {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  const file = formData.get('logo') as File | null
+  if (!file || file.size === 0) throw new Error('No file provided')
+
+  const blob = await put(`account-logos/${file.name}`, file, {
+    access: 'public',
+  })
+
+  return blob.url
+}
+
+export async function updateAccount(
+  id: string,
+  data: {
+    name: string
+    type: string
+    description: string | null
+    color: string | null
+    logoUrl: string | null
+    icon: string | null
+  }
+) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
@@ -54,7 +85,7 @@ export async function updateAccountType(id: string, type: string) {
 
   const account = await prisma.account.update({
     where: { id },
-    data: { type },
+    data,
   })
 
   return {
