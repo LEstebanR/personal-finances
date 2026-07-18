@@ -3,7 +3,30 @@
 import { parseCurrencyInput } from '@/lib/currency'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
+import { finiteAmount, optionalString, requiredString } from '@/lib/validation'
 import { put } from '@vercel/blob'
+import { z } from 'zod'
+
+const accountTypeSchema = z.enum(['cash', 'savings', 'caja'])
+
+const createAccountSchema = z.object({
+  accountName: requiredString,
+  accountType: accountTypeSchema,
+  initialBalance: finiteAmount,
+  description: optionalString,
+  color: optionalString,
+  logoUrl: optionalString,
+  icon: optionalString,
+})
+
+const updateAccountSchema = z.object({
+  name: requiredString,
+  type: accountTypeSchema,
+  description: z.string().nullable(),
+  color: z.string().nullable(),
+  logoUrl: z.string().nullable(),
+  icon: z.string().nullable(),
+})
 
 export async function getAccounts() {
   const session = await getServerSession()
@@ -25,19 +48,35 @@ export async function createAccount(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const initialBalance = parseCurrencyInput(formData.get('initialBalance'))
+  const {
+    accountName,
+    accountType,
+    initialBalance,
+    description,
+    color,
+    logoUrl,
+    icon,
+  } = createAccountSchema.parse({
+    accountName: formData.get('accountName'),
+    accountType: formData.get('accountType'),
+    initialBalance: parseCurrencyInput(formData.get('initialBalance')),
+    description: formData.get('description'),
+    color: formData.get('color'),
+    logoUrl: formData.get('logoUrl'),
+    icon: formData.get('icon'),
+  })
 
   const account = await prisma.account.create({
     data: {
       userId: session.user.id,
-      name: formData.get('accountName') as string,
-      type: formData.get('accountType') as string,
+      name: accountName,
+      type: accountType,
       initialBalance,
       currentBalance: initialBalance,
-      description: (formData.get('description') as string) || null,
-      color: (formData.get('color') as string) || null,
-      logoUrl: (formData.get('logoUrl') as string) || null,
-      icon: (formData.get('icon') as string) || null,
+      description,
+      color,
+      logoUrl,
+      icon,
     },
   })
 
@@ -79,13 +118,15 @@ export async function updateAccount(
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
+  const validated = updateAccountSchema.parse(data)
+
   await prisma.account.findFirstOrThrow({
     where: { id, userId: session.user.id },
   })
 
   const account = await prisma.account.update({
     where: { id },
-    data,
+    data: validated,
   })
 
   return {

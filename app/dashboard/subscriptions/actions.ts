@@ -3,6 +3,13 @@
 import { parseCurrencyInput } from '@/lib/currency'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
+import {
+  positiveAmount,
+  requiredString,
+  uuidField,
+  validDate,
+} from '@/lib/validation'
+import { z } from 'zod'
 
 function parseDueDay(value: FormDataEntryValue | null): number {
   const parsed = parseInt(String(value ?? ''), 10)
@@ -23,6 +30,20 @@ function parseFrequency(
 ): 'yearly' | 'monthly' {
   return value === 'yearly' ? 'yearly' : 'monthly'
 }
+
+const subscriptionFieldsSchema = z.object({
+  name: requiredString,
+  categoryId: uuidField,
+  subcategoryId: uuidField.nullable(),
+  amount: positiveAmount,
+  frequency: z.enum(['monthly', 'yearly']),
+  dueDay: z.number().int().min(1).max(31),
+  dueMonth: z.number().int().min(1).max(12).nullable(),
+})
+
+const createSubscriptionSchema = subscriptionFieldsSchema.extend({
+  startDate: validDate,
+})
 
 export async function getSubscriptions() {
   const session = await getServerSession()
@@ -46,19 +67,26 @@ export async function createSubscription(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const name = formData.get('name') as string
-  const categoryId = formData.get('categoryId') as string
-  const subcategoryId = (formData.get('subcategoryId') as string) || null
-  const amount = parseCurrencyInput(formData.get('amount'))
   const frequency = parseFrequency(formData.get('frequency'))
-  const dueDay = parseDueDay(formData.get('dueDay'))
-  const dueMonth =
-    frequency === 'yearly' ? parseDueMonth(formData.get('dueMonth')) : null
-  const startDate = new Date(formData.get('startDate') as string)
-
-  if (Number.isNaN(amount) || amount <= 0) {
-    throw new Error('Invalid amount')
-  }
+  const {
+    name,
+    categoryId,
+    subcategoryId,
+    amount,
+    dueDay,
+    dueMonth,
+    startDate,
+  } = createSubscriptionSchema.parse({
+    name: formData.get('name'),
+    categoryId: formData.get('categoryId'),
+    subcategoryId: (formData.get('subcategoryId') as string) || null,
+    amount: parseCurrencyInput(formData.get('amount')),
+    frequency,
+    dueDay: parseDueDay(formData.get('dueDay')),
+    dueMonth:
+      frequency === 'yearly' ? parseDueMonth(formData.get('dueMonth')) : null,
+    startDate: new Date(formData.get('startDate') as string),
+  })
 
   await prisma.category.findFirstOrThrow({
     where: { id: categoryId, userId: session.user.id },
@@ -85,18 +113,18 @@ export async function updateSubscription(id: string, formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const name = formData.get('name') as string
-  const categoryId = formData.get('categoryId') as string
-  const subcategoryId = (formData.get('subcategoryId') as string) || null
-  const amount = parseCurrencyInput(formData.get('amount'))
   const frequency = parseFrequency(formData.get('frequency'))
-  const dueDay = parseDueDay(formData.get('dueDay'))
-  const dueMonth =
-    frequency === 'yearly' ? parseDueMonth(formData.get('dueMonth')) : null
-
-  if (Number.isNaN(amount) || amount <= 0) {
-    throw new Error('Invalid amount')
-  }
+  const { name, categoryId, subcategoryId, amount, dueDay, dueMonth } =
+    subscriptionFieldsSchema.parse({
+      name: formData.get('name'),
+      categoryId: formData.get('categoryId'),
+      subcategoryId: (formData.get('subcategoryId') as string) || null,
+      amount: parseCurrencyInput(formData.get('amount')),
+      frequency,
+      dueDay: parseDueDay(formData.get('dueDay')),
+      dueMonth:
+        frequency === 'yearly' ? parseDueMonth(formData.get('dueMonth')) : null,
+    })
 
   await prisma.subscription.findFirstOrThrow({
     where: { id, userId: session.user.id },

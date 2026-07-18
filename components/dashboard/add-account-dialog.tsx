@@ -50,12 +50,14 @@ export function AddAccountDialog({
   const setIsOpen = setControlledOpen ?? setInternalOpen
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [accountName, setAccountName] = useState('')
+  const [type, setType] = useState(defaultType ?? 'savings')
   const [color, setColor] = useState<string | null>(null)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [icon, setIcon] = useState<string | null>(null)
 
   const resetAppearance = () => {
     setAccountName('')
+    setType(defaultType ?? 'savings')
     setColor(null)
     setLogoUrl(null)
     setIcon(null)
@@ -106,9 +108,18 @@ export function AddAccountDialog({
           </div>
           <div className="flex flex-col gap-1">
             <Label>{t('accounts.accountType')}</Label>
-            <Select name="accountType" required defaultValue={defaultType}>
+            <Select
+              name="accountType"
+              required
+              value={type}
+              onValueChange={(value) =>
+                setType(value as 'cash' | 'savings' | 'caja')
+              }
+            >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={t('accounts.selectAccountType')} />
+                <SelectValue placeholder={t('accounts.selectAccountType')}>
+                  {t(`accounts.${type}`)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="cash">{t('accounts.cash')}</SelectItem>

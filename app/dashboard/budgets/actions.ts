@@ -3,6 +3,30 @@
 import { parseCurrencyInput } from '@/lib/currency'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
+import {
+  positiveAmount,
+  requiredString,
+  uuidField,
+  validDate,
+} from '@/lib/validation'
+import { z } from 'zod'
+
+const budgetItemSchema = z.object({
+  categoryId: uuidField,
+  subcategoryId: uuidField.nullable(),
+  amount: positiveAmount,
+  description: z.string(),
+  date: validDate,
+})
+
+const recurringExpenseSchema = z.object({
+  categoryId: uuidField,
+  subcategoryId: uuidField.nullable(),
+  amount: positiveAmount,
+  name: requiredString,
+  frequency: z.enum(['weekly', 'monthly']),
+  date: validDate,
+})
 
 // Budget item dates are stored as UTC midnight (date-only values). Building
 // these bounds with the local Date constructor uses the server process's
@@ -312,15 +336,14 @@ export async function createBudgetItem(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const categoryId = formData.get('categoryId') as string
-  const subcategoryId = (formData.get('subcategoryId') as string) || null
-  const amount = parseCurrencyInput(formData.get('amount'))
-  const description = formData.get('description') as string
-  const date = new Date(formData.get('date') as string)
-
-  if (Number.isNaN(amount) || amount <= 0) {
-    throw new Error('Invalid amount')
-  }
+  const { categoryId, subcategoryId, amount, description, date } =
+    budgetItemSchema.parse({
+      categoryId: formData.get('categoryId'),
+      subcategoryId: (formData.get('subcategoryId') as string) || null,
+      amount: parseCurrencyInput(formData.get('amount')),
+      description: formData.get('description'),
+      date: new Date(formData.get('date') as string),
+    })
 
   await prisma.category.findFirstOrThrow({
     where: { id: categoryId, userId: session.user.id },
@@ -344,15 +367,14 @@ export async function updateBudgetItem(id: string, formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const categoryId = formData.get('categoryId') as string
-  const subcategoryId = (formData.get('subcategoryId') as string) || null
-  const amount = parseCurrencyInput(formData.get('amount'))
-  const description = formData.get('description') as string
-  const date = new Date(formData.get('date') as string)
-
-  if (Number.isNaN(amount) || amount <= 0) {
-    throw new Error('Invalid amount')
-  }
+  const { categoryId, subcategoryId, amount, description, date } =
+    budgetItemSchema.parse({
+      categoryId: formData.get('categoryId'),
+      subcategoryId: (formData.get('subcategoryId') as string) || null,
+      amount: parseCurrencyInput(formData.get('amount')),
+      description: formData.get('description'),
+      date: new Date(formData.get('date') as string),
+    })
 
   await prisma.budgetItem.findFirstOrThrow({
     where: { id, userId: session.user.id },
@@ -387,20 +409,15 @@ export async function createRecurringExpense(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const categoryId = formData.get('categoryId') as string
-  const subcategoryId = (formData.get('subcategoryId') as string) || null
-  const amount = parseCurrencyInput(formData.get('amount'))
-  const name = ((formData.get('description') as string) || '').trim()
-  const frequency =
-    formData.get('frequency') === 'weekly' ? 'weekly' : 'monthly'
-  const date = new Date(formData.get('date') as string)
-
-  if (Number.isNaN(amount) || amount <= 0) {
-    throw new Error('Invalid amount')
-  }
-  if (!name) {
-    throw new Error('Name is required for a recurring expense')
-  }
+  const { categoryId, subcategoryId, amount, name, frequency, date } =
+    recurringExpenseSchema.parse({
+      categoryId: formData.get('categoryId'),
+      subcategoryId: (formData.get('subcategoryId') as string) || null,
+      amount: parseCurrencyInput(formData.get('amount')),
+      name: formData.get('description'),
+      frequency: formData.get('frequency') === 'weekly' ? 'weekly' : 'monthly',
+      date: new Date(formData.get('date') as string),
+    })
 
   await prisma.category.findFirstOrThrow({
     where: { id: categoryId, userId: session.user.id },
@@ -452,20 +469,15 @@ export async function convertBudgetItemToRecurring(
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const categoryId = formData.get('categoryId') as string
-  const subcategoryId = (formData.get('subcategoryId') as string) || null
-  const amount = parseCurrencyInput(formData.get('amount'))
-  const name = ((formData.get('description') as string) || '').trim()
-  const frequency =
-    formData.get('frequency') === 'weekly' ? 'weekly' : 'monthly'
-  const date = new Date(formData.get('date') as string)
-
-  if (Number.isNaN(amount) || amount <= 0) {
-    throw new Error('Invalid amount')
-  }
-  if (!name) {
-    throw new Error('Name is required for a recurring expense')
-  }
+  const { categoryId, subcategoryId, amount, name, frequency, date } =
+    recurringExpenseSchema.parse({
+      categoryId: formData.get('categoryId'),
+      subcategoryId: (formData.get('subcategoryId') as string) || null,
+      amount: parseCurrencyInput(formData.get('amount')),
+      name: formData.get('description'),
+      frequency: formData.get('frequency') === 'weekly' ? 'weekly' : 'monthly',
+      date: new Date(formData.get('date') as string),
+    })
 
   const existing = await prisma.budgetItem.findFirstOrThrow({
     where: { id, userId: session.user.id },

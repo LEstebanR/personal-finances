@@ -3,6 +3,40 @@
 import { parseCurrencyInput, parseOptionalCurrencyInput } from '@/lib/currency'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
+import {
+  optionalString,
+  positiveAmount,
+  requiredString,
+  uuidField,
+  validDate,
+} from '@/lib/validation'
+import { z } from 'zod'
+
+const debtTypeSchema = z.enum(['loan', 'credit_card'])
+
+const createDebtSchema = z.object({
+  name: requiredString,
+  type: debtTypeSchema,
+  originalAmount: positiveAmount,
+  minimumPayment: positiveAmount.nullable(),
+  paymentDueDay: z.number().int().min(1).max(31).nullable(),
+  creditLimit: positiveAmount.nullable(),
+})
+
+const updateDebtSchema = z.object({
+  name: requiredString,
+  minimumPayment: positiveAmount.nullable(),
+  paymentDueDay: z.number().int().min(1).max(31).nullable(),
+  creditLimit: positiveAmount.nullable(),
+})
+
+const debtPaymentSchema = z.object({
+  debtId: uuidField,
+  accountId: uuidField,
+  amount: positiveAmount,
+  date: validDate,
+  note: optionalString,
+})
 
 export async function getDebts() {
   const session = await getServerSession()
@@ -48,21 +82,30 @@ export async function createDebt(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const type = (formData.get('type') as string) || 'loan'
-  const originalAmount = parseCurrencyInput(formData.get('originalAmount'))
-  const minimumPayment = parseOptionalCurrencyInput(
-    formData.get('minimumPayment')
-  )
-  const paymentDueDay = parsePaymentDueDay(formData.get('paymentDueDay'))
-  const creditLimit =
-    type === 'credit_card'
-      ? parseOptionalCurrencyInput(formData.get('creditLimit'))
-      : null
+  const rawType = (formData.get('type') as string) || 'loan'
+  const {
+    name,
+    type,
+    originalAmount,
+    minimumPayment,
+    paymentDueDay,
+    creditLimit,
+  } = createDebtSchema.parse({
+    name: formData.get('name'),
+    type: rawType,
+    originalAmount: parseCurrencyInput(formData.get('originalAmount')),
+    minimumPayment: parseOptionalCurrencyInput(formData.get('minimumPayment')),
+    paymentDueDay: parsePaymentDueDay(formData.get('paymentDueDay')),
+    creditLimit:
+      rawType === 'credit_card'
+        ? parseOptionalCurrencyInput(formData.get('creditLimit'))
+        : null,
+  })
 
   const debt = await prisma.debt.create({
     data: {
       userId: session.user.id,
-      name: formData.get('name') as string,
+      name,
       type,
       originalAmount,
       remainingBalance: originalAmount,
@@ -86,24 +129,28 @@ export async function updateDebt(id: string, formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const minimumPayment = parseOptionalCurrencyInput(
-    formData.get('minimumPayment')
-  )
-  const paymentDueDay = parsePaymentDueDay(formData.get('paymentDueDay'))
-
   const existing = await prisma.debt.findFirstOrThrow({
     where: { id, userId: session.user.id },
   })
-  const creditLimit =
-    existing.type === 'credit_card'
-      ? parseOptionalCurrencyInput(formData.get('creditLimit'))
-      : null
+
+  const { name, minimumPayment, paymentDueDay, creditLimit } =
+    updateDebtSchema.parse({
+      name: formData.get('name'),
+      minimumPayment: parseOptionalCurrencyInput(
+        formData.get('minimumPayment')
+      ),
+      paymentDueDay: parsePaymentDueDay(formData.get('paymentDueDay')),
+      creditLimit:
+        existing.type === 'credit_card'
+          ? parseOptionalCurrencyInput(formData.get('creditLimit'))
+          : null,
+    })
 
   const debt = await prisma.$transaction(async (tx) => {
     const updated = await tx.debt.update({
       where: { id, userId: session.user.id },
       data: {
-        name: formData.get('name') as string,
+        name,
         minimumPayment,
         paymentDueDay,
         creditLimit,
@@ -147,9 +194,13 @@ export async function createDebtPayment(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const debtId = formData.get('debtId') as string
-  const accountId = formData.get('accountId') as string
-  const amount = parseCurrencyInput(formData.get('amount'))
+  const { debtId, accountId, amount, date, note } = debtPaymentSchema.parse({
+    debtId: formData.get('debtId'),
+    accountId: formData.get('accountId'),
+    amount: parseCurrencyInput(formData.get('amount')),
+    date: new Date(formData.get('date') as string),
+    note: formData.get('note'),
+  })
 
   const payment = await prisma.$transaction(async (tx) => {
     const [debt, account] = await Promise.all([
@@ -179,8 +230,8 @@ export async function createDebtPayment(formData: FormData) {
         accountId,
         userId: session.user.id,
         amount,
-        date: new Date(formData.get('date') as string),
-        note: (formData.get('note') as string) || null,
+        date,
+        note,
       },
     })
   })

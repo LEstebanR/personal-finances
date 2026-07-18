@@ -3,6 +3,46 @@
 import { parseCurrencyInput } from '@/lib/currency'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
+import {
+  optionalString,
+  positiveAmount,
+  uuidField,
+  validDate,
+} from '@/lib/validation'
+import { z } from 'zod'
+
+const transactionSchema = z
+  .object({
+    accountId: uuidField.nullable(),
+    debtId: uuidField.nullable(),
+    amount: positiveAmount,
+    type: z.enum(['income', 'expense']),
+    categoryId: uuidField,
+    subcategoryId: uuidField.nullable(),
+    description: z.string(),
+    date: validDate,
+  })
+  .refine((data) => data.accountId || data.debtId, {
+    message: 'An account or debt is required',
+    path: ['accountId'],
+  })
+  .refine((data) => !data.debtId || data.type === 'expense', {
+    message: 'Only expenses can be charged to a debt',
+    path: ['debtId'],
+  })
+
+const transferSchema = z
+  .object({
+    fromAccountId: uuidField,
+    toAccountId: uuidField,
+    amount: positiveAmount,
+    date: validDate,
+    note: optionalString,
+  })
+  .refine((data) => data.fromAccountId !== data.toAccountId, {
+    message: 'Source and destination accounts must be different',
+    path: ['toAccountId'],
+  })
 
 export async function getTransactions() {
   const session = await getServerSession()
@@ -45,19 +85,25 @@ export async function createTransaction(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const accountId = (formData.get('accountId') as string) || null
-  const debtId = (formData.get('debtId') as string) || null
-  const amount = parseCurrencyInput(formData.get('amount'))
-  const type = formData.get('type') as string
-  const categoryId = formData.get('categoryId') as string
-  const subcategoryId = (formData.get('subcategoryId') as string) || null
-
-  if (!accountId && !debtId) {
-    throw new Error('An account or debt is required')
-  }
-  if (debtId && type !== 'expense') {
-    throw new Error('Only expenses can be charged to a debt')
-  }
+  const {
+    accountId,
+    debtId,
+    amount,
+    type,
+    categoryId,
+    subcategoryId,
+    description,
+    date,
+  } = transactionSchema.parse({
+    accountId: (formData.get('accountId') as string) || null,
+    debtId: (formData.get('debtId') as string) || null,
+    amount: parseCurrencyInput(formData.get('amount')),
+    type: formData.get('type'),
+    categoryId: formData.get('categoryId'),
+    subcategoryId: (formData.get('subcategoryId') as string) || null,
+    description: formData.get('description'),
+    date: new Date(formData.get('date') as string),
+  })
 
   const transaction = await prisma.$transaction(async (tx) => {
     await tx.category.findFirstOrThrow({
@@ -90,8 +136,8 @@ export async function createTransaction(formData: FormData) {
         debtId,
         amount,
         type,
-        description: formData.get('description') as string,
-        date: new Date(formData.get('date') as string),
+        description,
+        date,
         categoryId,
         subcategoryId,
       },
@@ -105,19 +151,25 @@ export async function updateTransaction(id: string, formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const accountId = (formData.get('accountId') as string) || null
-  const debtId = (formData.get('debtId') as string) || null
-  const amount = parseCurrencyInput(formData.get('amount'))
-  const type = formData.get('type') as string
-  const categoryId = formData.get('categoryId') as string
-  const subcategoryId = (formData.get('subcategoryId') as string) || null
-
-  if (!accountId && !debtId) {
-    throw new Error('An account or debt is required')
-  }
-  if (debtId && type !== 'expense') {
-    throw new Error('Only expenses can be charged to a debt')
-  }
+  const {
+    accountId,
+    debtId,
+    amount,
+    type,
+    categoryId,
+    subcategoryId,
+    description,
+    date,
+  } = transactionSchema.parse({
+    accountId: (formData.get('accountId') as string) || null,
+    debtId: (formData.get('debtId') as string) || null,
+    amount: parseCurrencyInput(formData.get('amount')),
+    type: formData.get('type'),
+    categoryId: formData.get('categoryId'),
+    subcategoryId: (formData.get('subcategoryId') as string) || null,
+    description: formData.get('description'),
+    date: new Date(formData.get('date') as string),
+  })
 
   const transaction = await prisma.$transaction(async (tx) => {
     const existing = await tx.transaction.findFirstOrThrow({
@@ -169,8 +221,8 @@ export async function updateTransaction(id: string, formData: FormData) {
         debtId,
         amount,
         type,
-        description: formData.get('description') as string,
-        date: new Date(formData.get('date') as string),
+        description,
+        date,
         categoryId,
         subcategoryId,
       },
@@ -213,9 +265,14 @@ export async function createTransfer(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const fromAccountId = formData.get('fromAccountId') as string
-  const toAccountId = formData.get('toAccountId') as string
-  const amount = parseCurrencyInput(formData.get('amount'))
+  const { fromAccountId, toAccountId, amount, date, note } =
+    transferSchema.parse({
+      fromAccountId: formData.get('fromAccountId'),
+      toAccountId: formData.get('toAccountId'),
+      amount: parseCurrencyInput(formData.get('amount')),
+      date: new Date(formData.get('date') as string),
+      note: formData.get('description'),
+    })
 
   const transfer = await prisma.$transaction(async (tx) => {
     const [fromAccount, toAccount] = await Promise.all([
@@ -248,8 +305,8 @@ export async function createTransfer(formData: FormData) {
         fromAccountId,
         toAccountId,
         amount,
-        date: new Date(formData.get('date') as string),
-        note: (formData.get('description') as string) || null,
+        date,
+        note,
       },
     })
   })
@@ -261,9 +318,14 @@ export async function updateTransfer(id: string, formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const fromAccountId = formData.get('fromAccountId') as string
-  const toAccountId = formData.get('toAccountId') as string
-  const amount = parseCurrencyInput(formData.get('amount'))
+  const { fromAccountId, toAccountId, amount, date, note } =
+    transferSchema.parse({
+      fromAccountId: formData.get('fromAccountId'),
+      toAccountId: formData.get('toAccountId'),
+      amount: parseCurrencyInput(formData.get('amount')),
+      date: new Date(formData.get('date') as string),
+      note: formData.get('description'),
+    })
 
   const transfer = await prisma.$transaction(async (tx) => {
     const existing = await tx.transfer.findFirstOrThrow({
@@ -303,8 +365,8 @@ export async function updateTransfer(id: string, formData: FormData) {
         fromAccountId,
         toAccountId,
         amount,
-        date: new Date(formData.get('date') as string),
-        note: (formData.get('description') as string) || null,
+        date,
+        note,
       },
     })
   })

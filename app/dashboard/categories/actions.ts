@@ -2,6 +2,11 @@
 
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
+import { requiredString, uuidField } from '@/lib/validation'
+import { z } from 'zod'
+
+const categoryNameSchema = requiredString
+const categoryTypeSchema = z.enum(['income', 'expense'])
 
 const DEFAULT_EXPENSE_CATEGORIES = [
   'Alimentación',
@@ -93,8 +98,8 @@ export async function createCategory(name: string, type: 'income' | 'expense') {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const trimmed = name.trim()
-  if (!trimmed) throw new Error('Category name is required')
+  const trimmed = categoryNameSchema.parse(name)
+  categoryTypeSchema.parse(type)
 
   const existing = await prisma.category.findFirst({
     where: {
@@ -114,8 +119,7 @@ export async function updateCategory(id: string, name: string) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const trimmed = name.trim()
-  if (!trimmed) throw new Error('Category name is required')
+  const trimmed = categoryNameSchema.parse(name)
 
   await prisma.category.findFirstOrThrow({
     where: { id, userId: session.user.id },
@@ -152,8 +156,8 @@ export async function findOrCreateSubcategory(
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const trimmed = name.trim()
-  if (!trimmed) throw new Error('Subcategory name is required')
+  uuidField.parse(categoryId)
+  const trimmed = requiredString.parse(name)
 
   await prisma.category.findFirstOrThrow({
     where: { id: categoryId, userId: session.user.id },
@@ -177,8 +181,7 @@ export async function updateSubcategory(id: string, name: string) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const trimmed = name.trim()
-  if (!trimmed) throw new Error('Subcategory name is required')
+  const trimmed = requiredString.parse(name)
 
   await prisma.subcategory.findFirstOrThrow({
     where: { id, userId: session.user.id },

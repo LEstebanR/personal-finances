@@ -114,9 +114,11 @@ export function EditAccountDialog({
           </div>
           <div className="flex flex-col gap-1">
             <Label>{t('accounts.accountType')}</Label>
-            <Select value={type} onValueChange={setType}>
+            <Select value={type} onValueChange={setType} required>
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue placeholder={t('accounts.selectAccountType')}>
+                  {type && t(`accounts.${type}`)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="cash">{t('accounts.cash')}</SelectItem>

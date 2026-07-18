@@ -2,6 +2,15 @@
 
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
+import { requiredString } from '@/lib/validation'
+import { z } from 'zod'
+
+const updateProfileSchema = z.object({
+  name: requiredString,
+  currency: z.enum(['usd', 'eur', 'gbp', 'cad', 'cop']),
+  timezone: requiredString,
+  budgetPeriod: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']),
+})
 
 export async function getProfile() {
   const session = await getServerSession()
@@ -30,14 +39,16 @@ export async function updateProfile(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
+  const data = updateProfileSchema.parse({
+    name: formData.get('name'),
+    currency: formData.get('currency'),
+    timezone: formData.get('timezone'),
+    budgetPeriod: formData.get('budgetPeriod'),
+  })
+
   const user = await prisma.user.update({
     where: { id: session.user.id },
-    data: {
-      name: formData.get('name') as string,
-      currency: formData.get('currency') as string,
-      timezone: formData.get('timezone') as string,
-      budgetPeriod: formData.get('budgetPeriod') as string,
-    },
+    data,
   })
 
   return { name: user.name }
