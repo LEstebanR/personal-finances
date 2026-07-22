@@ -15,7 +15,7 @@ import {
   getTransactions,
   getTransfers,
 } from '@/app/dashboard/transactions/actions'
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 
 export const queryKeys = {
   accounts: ['accounts'] as const,
@@ -83,6 +83,7 @@ export function useBudgetOverview(month: number, year: number) {
   return useQuery({
     queryKey: queryKeys.budgetOverview(month, year),
     queryFn: () => getBudgetOverview(month, year),
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -90,6 +91,7 @@ export function useBudgetItems(month: number, year: number) {
   return useQuery({
     queryKey: queryKeys.budgetItems(month, year),
     queryFn: () => getBudgetItems(month, year),
+    placeholderData: keepPreviousData,
   })
 }
 
@@ -97,5 +99,6 @@ export function useCategoryMonthlyTotals(year: number) {
   return useQuery({
     queryKey: queryKeys.categoryMonthlyTotals(year),
     queryFn: () => getCategoryMonthlyTotals(year),
+    placeholderData: keepPreviousData,
   })
 }

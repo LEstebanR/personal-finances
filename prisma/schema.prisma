@@ -186,6 +186,7 @@ model User {
   currency          String             @default("usd")
   timezone          String             @default("America/Bogota")
   budgetPeriod      String             @default("monthly")
+  language          String             @default("en")
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   sessions          Session[]

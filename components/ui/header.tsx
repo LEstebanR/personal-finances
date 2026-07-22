@@ -45,8 +45,11 @@ function HeaderContent({
     router.push('/')
   }
 
-  const viewTitle = currentView
-    ? (t(`nav.${currentView}`) ?? currentView)
+  const viewTitleKey = currentView?.replace(/-([a-z])/g, (_, c) =>
+    c.toUpperCase()
+  )
+  const viewTitle = viewTitleKey
+    ? (t(`nav.${viewTitleKey}`) ?? viewTitleKey)
     : t('nav.accounts')
 
   return (
@@ -113,7 +116,10 @@ function HeaderContent({
               <DropdownMenuTrigger asChild>
                 <MenuIcon />
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="mt-3 w-screen rounded-t-none">
+              <DropdownMenuContent
+                align="end"
+                className="mt-3 w-[calc(100vw-2rem)] rounded-t-none"
+              >
                 <Link href="/login" className="flex items-center gap-2">
                   <DropdownMenuItem>
                     <LogIn className="h-4 w-4" />

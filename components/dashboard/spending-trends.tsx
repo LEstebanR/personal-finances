@@ -5,7 +5,7 @@ import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
 import { useCategoryMonthlyTotals } from '@/lib/queries'
 import { ChevronLeft, ChevronRight, Loader, Table } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { Button } from '../ui/button'
 
@@ -32,6 +32,15 @@ export function SpendingTrends() {
   const [year, setYear] = useState(new Date().getFullYear())
   const { data: rows = EMPTY_ARRAY, isLoading: loading } =
     useCategoryMonthlyTotals(year)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const el = scrollRef.current
+    if (!el || el.scrollWidth <= el.clientWidth) return
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
+    el.scrollLeft += e.deltaY
+    e.preventDefault()
+  }
 
   const monthTotals = MONTH_KEYS.map((_, month) =>
     rows.reduce((sum, row) => sum + row.monthlyTotals[month], 0)
@@ -71,19 +80,22 @@ export function SpendingTrends() {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] border-collapse text-sm">
+        <div className="overflow-x-auto" ref={scrollRef} onWheel={handleWheel}>
+          <table className="w-full min-w-[1400px] border-separate border-spacing-0 text-sm">
             <thead>
-              <tr className="border-b">
-                <th className="bg-background sticky left-0 p-2 text-left font-medium">
+              <tr>
+                <th className="bg-background sticky left-0 border-b px-4 py-2 text-left font-medium">
                   {t('transactions.category')}
                 </th>
                 {MONTH_KEYS.map((key) => (
-                  <th key={key} className="p-2 text-right font-medium">
+                  <th
+                    key={key}
+                    className="border-b px-4 py-2 text-right font-medium"
+                  >
                     {t(`budgets.months.${key}`).slice(0, 3)}
                   </th>
                 ))}
-                <th className="p-2 text-right font-medium">
+                <th className="border-b px-4 py-2 text-right font-medium">
                   {t('spendingTrends.total')}
                 </th>
               </tr>
@@ -92,19 +104,19 @@ export function SpendingTrends() {
               {rows.map((row) => {
                 const rowTotal = row.monthlyTotals.reduce((a, b) => a + b, 0)
                 return (
-                  <tr key={row.categoryId} className="border-b">
-                    <td className="bg-background sticky left-0 p-2 font-medium">
+                  <tr key={row.categoryId}>
+                    <td className="bg-background sticky left-0 border-b px-4 py-2 font-medium">
                       {row.categoryName}
                     </td>
                     {row.monthlyTotals.map((amount, i) => (
                       <td
                         key={i}
-                        className="text-muted-foreground p-2 text-right"
+                        className="text-muted-foreground border-b px-4 py-2 text-right"
                       >
                         {amount > 0 ? `$${formatMoney(amount, currency)}` : '—'}
                       </td>
                     ))}
-                    <td className="p-2 text-right font-semibold">
+                    <td className="border-b px-4 py-2 text-right font-semibold">
                       ${formatMoney(rowTotal, currency)}
                     </td>
                   </tr>
@@ -112,16 +124,19 @@ export function SpendingTrends() {
               })}
             </tbody>
             <tfoot>
-              <tr className="border-t-2">
-                <td className="bg-background sticky left-0 p-2 font-semibold">
+              <tr>
+                <td className="bg-background sticky left-0 border-t-2 px-4 py-2 font-semibold">
                   {t('spendingTrends.total')}
                 </td>
                 {monthTotals.map((amount, i) => (
-                  <td key={i} className="p-2 text-right font-semibold">
+                  <td
+                    key={i}
+                    className="border-t-2 px-4 py-2 text-right font-semibold"
+                  >
                     ${formatMoney(amount, currency)}
                   </td>
                 ))}
-                <td className="p-2 text-right font-bold">
+                <td className="border-t-2 px-4 py-2 text-right font-bold">
                   ${formatMoney(grandTotal, currency)}
                 </td>
               </tr>

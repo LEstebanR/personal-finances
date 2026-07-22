@@ -14,12 +14,22 @@ import { Popover, PopoverContent, PopoverTrigger } from './popover'
 export function DatePicker({
   name,
   defaultValue,
+  value: controlledValue,
+  onChange,
+  placeholder,
 }: {
-  name: string
+  name?: string
   defaultValue?: Date
+  value?: Date
+  onChange?: (date: Date | undefined) => void
+  placeholder?: string
 }) {
   const { language } = useLanguage()
-  const [date, setDate] = useState<Date | undefined>(defaultValue ?? new Date())
+  const isControlled = controlledValue !== undefined || !!onChange
+  const [internalDate, setInternalDate] = useState<Date | undefined>(
+    defaultValue ?? (isControlled ? undefined : new Date())
+  )
+  const date = isControlled ? controlledValue : internalDate
   const [open, setOpen] = useState(false)
   const locale = language === 'es' ? es : undefined
 
@@ -36,7 +46,7 @@ export function DatePicker({
             )}
           >
             <CalendarIcon className="h-4 w-4" />
-            {date ? format(date, 'PPP', { locale }) : null}
+            {date ? format(date, 'PPP', { locale }) : (placeholder ?? null)}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
@@ -44,7 +54,8 @@ export function DatePicker({
             mode="single"
             selected={date}
             onSelect={(selected) => {
-              setDate(selected)
+              if (!isControlled) setInternalDate(selected)
+              onChange?.(selected)
               setOpen(false)
             }}
             locale={locale}
@@ -52,11 +63,13 @@ export function DatePicker({
           />
         </PopoverContent>
       </Popover>
-      <input
-        type="hidden"
-        name={name}
-        value={date ? format(date, 'yyyy-MM-dd') : ''}
-      />
+      {name && (
+        <input
+          type="hidden"
+          name={name}
+          value={date ? format(date, 'yyyy-MM-dd') : ''}
+        />
+      )}
     </div>
   )
 }

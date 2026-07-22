@@ -12,6 +12,8 @@ const updateProfileSchema = z.object({
   budgetPeriod: z.enum(['weekly', 'monthly', 'quarterly', 'yearly']),
 })
 
+const languageSchema = z.enum(['en', 'es'])
+
 export async function getProfile() {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
@@ -52,4 +54,16 @@ export async function updateProfile(formData: FormData) {
   })
 
   return { name: user.name }
+}
+
+export async function updateLanguage(language: string) {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  const parsed = languageSchema.parse(language)
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { language: parsed },
+  })
 }

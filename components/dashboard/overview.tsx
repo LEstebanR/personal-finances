@@ -345,67 +345,6 @@ export function Overview() {
           <Card>
             <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                {t('overview.monthlyIncome')}
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                +${formatMoney(monthlyStats.income, currency)}
-              </div>
-              <p className="text-muted-foreground text-xs">
-                {t('overview.thisMonth')}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {t('overview.monthlyExpenses')}
-              </CardTitle>
-              <TrendingDown className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                ${formatMoney(monthlyStats.expenses, currency)}
-              </div>
-              <p className="text-muted-foreground text-xs">
-                {t('overview.thisMonth')}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {t('overview.netIncome')}
-              </CardTitle>
-              <DollarSign className="text-muted-foreground h-4 w-4" />
-            </CardHeader>
-            <CardContent>
-              <div
-                className={`text-2xl font-bold ${
-                  monthlyStats.income - monthlyStats.expenses >= 0
-                    ? 'text-green-600'
-                    : 'text-red-600'
-                }`}
-              >
-                {monthlyStats.income - monthlyStats.expenses >= 0 ? '+' : ''}$
-                {formatMoney(
-                  monthlyStats.income - monthlyStats.expenses,
-                  currency
-                )}
-              </div>
-              <p className="text-muted-foreground text-xs">
-                {t('overview.thisMonth')}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
                 {t('overview.totalDebt')}
               </CardTitle>
               <Landmark className="text-muted-foreground h-4 w-4" />
@@ -466,6 +405,95 @@ export function Overview() {
             </CardContent>
           </Card>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('overview.accountSummary')}</CardTitle>
+            <CardDescription>
+              {t('overview.accountSummaryDesc')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {accounts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <span className="mb-2 text-4xl">🏦</span>
+                <p className="text-muted-foreground">
+                  {t('overview.noAccounts')}
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[...accounts]
+                  .sort((a, b) => b.currentBalance - a.currentBalance)
+                  .map((account) => {
+                    const TypeIcon =
+                      account.type === 'cash'
+                        ? Wallet
+                        : account.type === 'caja'
+                          ? Lock
+                          : PiggyBank
+                    const Icon = getAccountIcon(account.icon) ?? TypeIcon
+                    const typeLabel =
+                      account.type === 'cash'
+                        ? t('accounts.cash')
+                        : account.type === 'caja'
+                          ? t('accounts.caja')
+                          : t('accounts.savings')
+                    return (
+                      <Link
+                        key={account.id}
+                        href={`?account&id=${account.id}`}
+                        className="block"
+                      >
+                        <Card className="transition-shadow hover:shadow-md">
+                          <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="truncate text-sm font-medium">
+                              {account.name}
+                            </CardTitle>
+                            {account.logoUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element -- external/dynamic logo domains, not worth remotePatterns config
+                              <img
+                                src={account.logoUrl}
+                                alt=""
+                                className="h-4 w-4 shrink-0 object-contain"
+                              />
+                            ) : (
+                              <Icon
+                                className="text-muted-foreground h-4 w-4 shrink-0"
+                                style={
+                                  account.color
+                                    ? { color: account.color }
+                                    : undefined
+                                }
+                              />
+                            )}
+                          </CardHeader>
+                          <CardContent>
+                            <div
+                              className={`text-2xl font-bold ${
+                                Number(account.currentBalance) < 0
+                                  ? 'text-red-600'
+                                  : ''
+                              }`}
+                            >
+                              $
+                              {formatMoney(
+                                Number(account.currentBalance),
+                                currency
+                              )}
+                            </div>
+                            <p className="text-muted-foreground text-xs">
+                              {typeLabel}
+                            </p>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    )
+                  })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Link href="?budget" className="block">
           <Card className="transition-shadow hover:shadow-md">
@@ -760,95 +788,6 @@ export function Overview() {
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('overview.accountSummary')}</CardTitle>
-            <CardDescription>
-              {t('overview.accountSummaryDesc')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {accounts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <span className="mb-2 text-4xl">🏦</span>
-                <p className="text-muted-foreground">
-                  {t('overview.noAccounts')}
-                </p>
-              </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {[...accounts]
-                  .sort((a, b) => b.currentBalance - a.currentBalance)
-                  .map((account) => {
-                    const TypeIcon =
-                      account.type === 'cash'
-                        ? Wallet
-                        : account.type === 'caja'
-                          ? Lock
-                          : PiggyBank
-                    const Icon = getAccountIcon(account.icon) ?? TypeIcon
-                    const typeLabel =
-                      account.type === 'cash'
-                        ? t('accounts.cash')
-                        : account.type === 'caja'
-                          ? t('accounts.caja')
-                          : t('accounts.savings')
-                    return (
-                      <Link
-                        key={account.id}
-                        href={`?account&id=${account.id}`}
-                        className="block"
-                      >
-                        <Card className="transition-shadow hover:shadow-md">
-                          <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="truncate text-sm font-medium">
-                              {account.name}
-                            </CardTitle>
-                            {account.logoUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element -- external/dynamic logo domains, not worth remotePatterns config
-                              <img
-                                src={account.logoUrl}
-                                alt=""
-                                className="h-4 w-4 shrink-0 object-contain"
-                              />
-                            ) : (
-                              <Icon
-                                className="text-muted-foreground h-4 w-4 shrink-0"
-                                style={
-                                  account.color
-                                    ? { color: account.color }
-                                    : undefined
-                                }
-                              />
-                            )}
-                          </CardHeader>
-                          <CardContent>
-                            <div
-                              className={`text-2xl font-bold ${
-                                Number(account.currentBalance) < 0
-                                  ? 'text-red-600'
-                                  : ''
-                              }`}
-                            >
-                              $
-                              {formatMoney(
-                                Number(account.currentBalance),
-                                currency
-                              )}
-                            </div>
-                            <p className="text-muted-foreground text-xs">
-                              {typeLabel}
-                            </p>
-                          </CardContent>
-                        </Card>
-                      </Link>
-                    )
-                  })}
               </div>
             )}
           </CardContent>

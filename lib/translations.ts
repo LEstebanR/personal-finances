@@ -86,7 +86,7 @@ export const translations = {
       faqA1: "It's free. No paid plans, no usage limits.",
       faqQ2: 'Is my financial data safe?',
       faqA2:
-        "Sign-in is Google-only — no password to leak. Data is stored in a private database and never shared with third parties.",
+        'Sign-in is Google-only — no password to leak. Data is stored in a private database and never shared with third parties.',
       faqQ3: 'Does it connect to my bank?',
       faqA3:
         "No — every movement is logged by hand. That's on purpose: it keeps things simple and never requires bank access.",
@@ -94,7 +94,8 @@ export const translations = {
       faqA4:
         "Yes, it's a web app that can be installed on the home screen from Chrome or Safari, and works just like a native app.",
       faqQ5: 'Can I change the currency?',
-      faqA5: 'Yes — USD, COP, EUR, GBP, and CAD are available from the profile.',
+      faqA5:
+        'Yes — USD, COP, EUR, GBP, and CAD are available from the profile.',
 
       ctaTitle: 'Ready when you are.',
       ctaTitleMuted: 'Free, no strings attached.',
@@ -256,6 +257,15 @@ export const translations = {
       noItemsFound: 'No Transactions Yet',
       noItemsFoundDesc:
         "You haven't recorded any transactions or transfers yet. Add your first one to start tracking your money.",
+      allAccounts: 'All accounts',
+      allCategories: 'All categories',
+      searchPlaceholder: 'Search description...',
+      dateFrom: 'From',
+      dateTo: 'To',
+      clearFilters: 'Clear filters',
+      noResultsFiltered: 'No transactions match your filters',
+      noResultsFilteredDesc: 'Try adjusting or clearing the filters above.',
+      sortByDate: 'Sort by date',
       showing: 'Showing',
       to: 'to',
       of: 'of',
@@ -545,7 +555,8 @@ export const translations = {
       step1Description:
         'Agregar las cuentas de efectivo y ahorros para llevar el balance en un solo lugar.',
       step2Title: 'Registrar transacciones y transferencias',
-      step2Description: 'Anotar ingresos y gastos, y mover dinero entre cuentas.',
+      step2Description:
+        'Anotar ingresos y gastos, y mover dinero entre cuentas.',
       step3Title: 'Ver el resumen',
       step3Description:
         'Tener una vista clara del balance total y la actividad mensual.',
@@ -678,7 +689,8 @@ export const translations = {
     transactions: {
       title: 'Transacciones',
       addTransaction: 'Agregar Transacción',
-      dialogDescription: 'Crear una nueva transacción para registrar tu dinero.',
+      dialogDescription:
+        'Crear una nueva transacción para registrar tu dinero.',
       all: 'Todas',
       income: 'Ingreso',
       expense: 'Gasto',
@@ -729,6 +741,15 @@ export const translations = {
       noItemsFound: 'Todavía no hay transacciones',
       noItemsFoundDesc:
         'Todavía no hay transacciones ni transferencias registradas. Agregar la primera para empezar a llevar tu dinero.',
+      allAccounts: 'Todas las cuentas',
+      allCategories: 'Todas las categorías',
+      searchPlaceholder: 'Buscar descripción...',
+      dateFrom: 'Desde',
+      dateTo: 'Hasta',
+      clearFilters: 'Limpiar filtros',
+      noResultsFiltered: 'Ninguna transacción coincide con tus filtros',
+      noResultsFilteredDesc: 'Ajusta o limpia los filtros de arriba.',
+      sortByDate: 'Ordenar por fecha',
       showing: 'Mostrando',
       to: 'a',
       of: 'de',
@@ -759,7 +780,8 @@ export const translations = {
       title: 'Deudas',
       addDebt: 'Agregar Deuda',
       editDebt: 'Editar Deuda',
-      dialogDescription: 'Registrar una deuda para llevar el control de los abonos.',
+      dialogDescription:
+        'Registrar una deuda para llevar el control de los abonos.',
       name: 'Nombre',
       type: 'Tipo',
       loan: 'Préstamo',

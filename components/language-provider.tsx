@@ -38,16 +38,30 @@ const LanguageContext = createContext<LanguageContextValue>({
   t: (key) => key,
 })
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguageState] = useState<Language>('en')
+export function LanguageProvider({
+  children,
+  initialLanguage,
+  onChange,
+}: {
+  children: React.ReactNode
+  initialLanguage?: Language
+  onChange?: (language: Language) => Promise<void> | void
+}) {
+  const [language, setLanguageState] = useState<Language>(
+    initialLanguage ?? 'en'
+  )
 
   useEffect(() => {
+    if (initialLanguage) return
     setLanguageState(detectLanguage())
-  }, [])
+  }, [initialLanguage])
 
   const setLanguage = (next: Language) => {
     setLanguageState(next)
     window.localStorage.setItem(STORAGE_KEY, next)
+    onChange?.(next)?.catch((error: unknown) =>
+      console.error('Error persisting language:', error)
+    )
   }
 
   const t = (key: string, vars?: Record<string, string | number>) => {

@@ -4,10 +4,26 @@ import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
 import { useAccounts, useTransactions, useTransfers } from '@/lib/queries'
-import { CreditCard, Loader, PlusIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import {
+  ArrowDown,
+  ArrowUp,
+  CreditCard,
+  Loader,
+  PlusIcon,
+  X,
+} from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { Button } from '../ui/button'
+import { DatePicker } from '../ui/date-picker'
+import { Input } from '../ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select'
 import {
   Table,
   TableBody,
@@ -23,6 +39,8 @@ import {
   type EditableItem,
 } from './edit-transaction-dialog'
 import { TransactionRowActions } from './transaction-row-actions'
+
+const ALL = 'all'
 
 interface Transaction {
   id: string
@@ -96,6 +114,12 @@ export function Transactions() {
   const [transactionsPerPage] = useState(10)
   const [editingItem, setEditingItem] = useState<EditableItem | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [search, setSearch] = useState('')
+  const [accountFilter, setAccountFilter] = useState(ALL)
+  const [categoryFilter, setCategoryFilter] = useState(ALL)
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined)
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined)
 
   const combinedItems = useMemo(() => {
     const accountMap = new Map<string, string>()
@@ -115,20 +139,128 @@ export function Transactions() {
       toAccountName: accountMap.get(tItem.toAccountId),
     }))
 
-    return [...transactionItems, ...transferItems].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
-  }, [accounts, transactions, transfers])
+    return [...transactionItems, ...transferItems].sort((a, b) => {
+      const diff = new Date(a.date).getTime() - new Date(b.date).getTime()
+      return sortOrder === 'asc' ? diff : -diff
+    })
+  }, [accounts, transactions, transfers, sortOrder])
+
+  const accountOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const item of combinedItems) {
+      if (item.itemType === 'transaction') {
+        const id = item.accountId ?? item.debtId
+        if (id && item.sourceName) map.set(id, item.sourceName)
+      } else {
+        if (item.fromAccountName)
+          map.set(item.fromAccountId, item.fromAccountName)
+        if (item.toAccountName) map.set(item.toAccountId, item.toAccountName)
+      }
+    }
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [combinedItems])
+
+  const categoryOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const item of combinedItems) {
+      if (item.itemType === 'transaction' && item.categoryName) {
+        map.set(item.categoryId, item.categoryName)
+      }
+    }
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [combinedItems])
+
+  const hasActiveFilters =
+    search.trim() !== '' ||
+    accountFilter !== ALL ||
+    categoryFilter !== ALL ||
+    dateFrom !== undefined ||
+    dateTo !== undefined
+
+  const clearFilters = () => {
+    setSearch('')
+    setAccountFilter(ALL)
+    setCategoryFilter(ALL)
+    setDateFrom(undefined)
+    setDateTo(undefined)
+  }
+
+  const filteredCombinedItems = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    const from = dateFrom
+      ? new Date(
+          Date.UTC(
+            dateFrom.getFullYear(),
+            dateFrom.getMonth(),
+            dateFrom.getDate()
+          )
+        )
+      : null
+    const to = dateTo
+      ? new Date(
+          Date.UTC(
+            dateTo.getFullYear(),
+            dateTo.getMonth(),
+            dateTo.getDate(),
+            23,
+            59,
+            59
+          )
+        )
+      : null
+
+    return combinedItems.filter((item) => {
+      if (accountFilter !== ALL) {
+        const matchesAccount =
+          item.itemType === 'transaction'
+            ? item.accountId === accountFilter || item.debtId === accountFilter
+            : item.fromAccountId === accountFilter ||
+              item.toAccountId === accountFilter
+        if (!matchesAccount) return false
+      }
+
+      if (categoryFilter !== ALL) {
+        if (
+          item.itemType !== 'transaction' ||
+          item.categoryId !== categoryFilter
+        )
+          return false
+      }
+
+      const itemDate = new Date(item.date)
+      if (from && itemDate < from) return false
+      if (to && itemDate > to) return false
+
+      if (query) {
+        const text =
+          item.itemType === 'transaction'
+            ? (item.description || item.categoryName || '').toLowerCase()
+            : (item.note || '').toLowerCase()
+        if (!text.includes(query)) return false
+      }
+
+      return true
+    })
+  }, [combinedItems, accountFilter, categoryFilter, dateFrom, dateTo, search])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [accountFilter, categoryFilter, dateFrom, dateTo, search, sortOrder])
 
   const filterItemsByType = (
     type: 'all' | 'income' | 'expense' | 'transfer'
   ) => {
-    if (type === 'all') return combinedItems
+    if (type === 'all') return filteredCombinedItems
     if (type === 'transfer') {
-      return combinedItems.filter((item) => item.itemType === 'transfer')
+      return filteredCombinedItems.filter(
+        (item) => item.itemType === 'transfer'
+      )
     }
-    return combinedItems.filter(
+    return filteredCombinedItems.filter(
       (item) => item.itemType === 'transaction' && item.type === type
     )
   }
@@ -168,6 +300,22 @@ export function Transactions() {
     </div>
   )
 
+  const NoResultsState = () => (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <CreditCard className="mb-4 h-16 w-16 text-gray-300" />
+      <h3 className="mb-2 text-lg font-semibold text-gray-900">
+        {t('transactions.noResultsFiltered')}
+      </h3>
+      <p className="mb-6 max-w-sm text-gray-500">
+        {t('transactions.noResultsFilteredDesc')}
+      </p>
+      <Button variant="outline" onClick={clearFilters}>
+        <X className="mr-2 h-4 w-4" />
+        {t('transactions.clearFilters')}
+      </Button>
+    </div>
+  )
+
   return (
     <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
       <div className="flex w-full justify-between">
@@ -181,6 +329,70 @@ export function Transactions() {
           }
         />
       </div>
+
+      {!loading && combinedItems.length > 0 && (
+        <div className="mt-6 grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <Input
+            placeholder={t('transactions.searchPlaceholder')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="lg:col-span-2"
+          />
+          <Select value={accountFilter} onValueChange={setAccountFilter}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={t('transactions.allAccounts')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>
+                {t('transactions.allAccounts')}
+              </SelectItem>
+              {accountOptions.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={t('transactions.allCategories')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>
+                {t('transactions.allCategories')}
+              </SelectItem>
+              {categoryOptions.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-2">
+            <DatePicker
+              value={dateFrom}
+              onChange={setDateFrom}
+              placeholder={t('transactions.dateFrom')}
+            />
+            <DatePicker
+              value={dateTo}
+              onChange={setDateTo}
+              placeholder={t('transactions.dateTo')}
+            />
+          </div>
+          <Button
+            variant="ghost"
+            onClick={clearFilters}
+            disabled={!hasActiveFilters}
+            className={`justify-self-start lg:col-span-5 ${
+              hasActiveFilters ? '' : 'invisible'
+            }`}
+          >
+            <X className="mr-2 h-4 w-4" />
+            {t('transactions.clearFilters')}
+          </Button>
+        </div>
+      )}
 
       <div className="mt-6 w-full">
         {loading ? (
@@ -219,7 +431,11 @@ export function Transactions() {
               return (
                 <TabsContent key={tabType} value={tabType} className="mt-6">
                   {filteredItems.length === 0 ? (
-                    <EmptyState />
+                    hasActiveFilters ? (
+                      <NoResultsState />
+                    ) : (
+                      <EmptyState />
+                    )
                   ) : (
                     <>
                       <div className="rounded-md border">
@@ -242,7 +458,23 @@ export function Transactions() {
                                 {t('transactions.table.amount')}
                               </TableHead>
                               <TableHead>
-                                {t('transactions.table.date')}
+                                <button
+                                  type="button"
+                                  className="flex items-center gap-1"
+                                  onClick={() =>
+                                    setSortOrder((prev) =>
+                                      prev === 'asc' ? 'desc' : 'asc'
+                                    )
+                                  }
+                                  aria-label={t('transactions.sortByDate')}
+                                >
+                                  {t('transactions.table.date')}
+                                  {sortOrder === 'asc' ? (
+                                    <ArrowUp className="h-3 w-3" />
+                                  ) : (
+                                    <ArrowDown className="h-3 w-3" />
+                                  )}
+                                </button>
                               </TableHead>
                               <TableHead className="text-right">
                                 {t('transactions.table.actions')}
