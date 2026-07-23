@@ -4,12 +4,16 @@ import { deleteBudgetItem } from '@/app/dashboard/budgets/actions'
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
-import { useBudgetItems, useBudgetOverview } from '@/lib/queries'
+import {
+  useBudgetDailyActuals,
+  useBudgetItems,
+  useBudgetOverview,
+} from '@/lib/queries'
 import { cn } from '@/lib/utils'
+import { es } from 'date-fns/locale'
 import {
   ChevronLeft,
   ChevronRight,
-  Loader,
   Pencil,
   PlusIcon,
   Repeat,
@@ -22,7 +26,9 @@ import { toast } from 'sonner'
 
 import { Button } from '../ui/button'
 import { Calendar } from '../ui/calendar'
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '../ui/hover-card'
+import { Loader } from '../ui/loader'
 import {
   AddBudgetItemDialog,
   type EditableBudgetItem,
@@ -70,26 +76,33 @@ interface DayBudgetItem {
 
 function BudgetDayButton({
   totals,
+  actuals,
   itemsByDay,
   currency,
+  locale,
+  labels,
   className,
   day,
   modifiers,
   ...props
 }: React.ComponentProps<typeof DayButton> & {
   totals: Map<string, number>
+  actuals: Map<string, number>
   itemsByDay: Map<string, DayBudgetItem[]>
   currency: string
+  locale: string
+  labels: { planned: string; actual: string }
 }) {
   const key = localDateKey(day.date)
   const total = totals.get(key)
+  const actual = actuals.get(key)
   const dayItems = itemsByDay.get(key)
 
   const button = (
     <Button
       variant="ghost"
       size="icon"
-      data-day={day.date.toLocaleDateString()}
+      data-day={day.date.toLocaleDateString(locale)}
       className={cn(
         'flex aspect-square h-full w-full min-w-(--cell-size) flex-col gap-0.5 leading-none font-normal',
         modifiers.today && 'bg-accent',
@@ -104,10 +117,16 @@ function BudgetDayButton({
           {formatMoney(total, currency)}
         </span>
       ) : null}
+      {actual ? (
+        <span className="text-[9px] leading-none font-semibold text-amber-600 dark:text-amber-500">
+          {formatMoney(actual, currency)}
+        </span>
+      ) : null}
     </Button>
   )
 
-  if (!dayItems || dayItems.length === 0) return button
+  const hasPlannedItems = !!dayItems && dayItems.length > 0
+  if (!hasPlannedItems && !actual) return button
 
   return (
     <HoverCard openDelay={150}>
@@ -115,26 +134,40 @@ function BudgetDayButton({
       <HoverCardContent className="w-64">
         <div className="flex flex-col gap-2">
           <p className="text-sm font-medium">
-            {day.date.toLocaleDateString(undefined, {
+            {day.date.toLocaleDateString(locale, {
               day: '2-digit',
               month: 'long',
             })}
           </p>
-          <div className="flex flex-col gap-1.5">
-            {dayItems.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between gap-2 text-xs"
-              >
-                <span className="text-muted-foreground truncate">
-                  {item.description || item.categoryName}
-                </span>
-                <span className="shrink-0 font-medium">
-                  ${formatMoney(item.amount, currency)}
-                </span>
-              </div>
-            ))}
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-muted-foreground">{labels.planned}</span>
+            <span className="text-primary font-semibold">
+              ${formatMoney(total ?? 0, currency)}
+            </span>
           </div>
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-muted-foreground">{labels.actual}</span>
+            <span className="font-semibold text-amber-600 dark:text-amber-500">
+              ${formatMoney(actual ?? 0, currency)}
+            </span>
+          </div>
+          {hasPlannedItems && (
+            <div className="flex flex-col gap-1.5 border-t pt-2">
+              {dayItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between gap-2 text-xs"
+                >
+                  <span className="text-muted-foreground truncate">
+                    {item.description || item.categoryName}
+                  </span>
+                  <span className="shrink-0 font-medium">
+                    ${formatMoney(item.amount, currency)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </HoverCardContent>
     </HoverCard>
@@ -143,7 +176,8 @@ function BudgetDayButton({
 
 export function Budgets() {
   const currency = useCurrency()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
+  const locale = language === 'es' ? 'es-ES' : 'en-US'
   const { triggerRefresh } = useDashboardRefresh()
   const now = new Date()
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -166,7 +200,22 @@ export function Budgets() {
   )
   const { data: categoryTotals = [], isLoading: loadingOverview } =
     useBudgetOverview(month, year)
-  const loading = loadingItems || loadingOverview
+  const { data: dailyActuals = [], isLoading: loadingActuals } =
+    useBudgetDailyActuals(month, year)
+  const loading = loadingItems || loadingOverview || loadingActuals
+
+  const actualByDay = useMemo(() => {
+    const actuals = new Map<string, number>()
+    for (const expense of dailyActuals) {
+      const key = dbDateKey(expense.date)
+      actuals.set(key, (actuals.get(key) ?? 0) + expense.amount)
+    }
+    return actuals
+  }, [dailyActuals])
+
+  const isCurrentMonth =
+    month === now.getMonth() + 1 && year === now.getFullYear()
+  const todayKey = dbDateKey(now)
 
   const { dailyTotals, itemsByDay } = useMemo(() => {
     const totals = new Map<string, number>()
@@ -185,6 +234,12 @@ export function Budgets() {
     }
     return { dailyTotals: totals, itemsByDay: byDay }
   }, [items])
+
+  const todayItems = isCurrentMonth ? (itemsByDay.get(todayKey) ?? []) : []
+  const todayPlannedTotal = isCurrentMonth
+    ? (dailyTotals.get(todayKey) ?? 0)
+    : 0
+  const todayActualTotal = isCurrentMonth ? (actualByDay.get(todayKey) ?? 0) : 0
 
   const goToPreviousMonth = () => {
     setOccasionalPage(1)
@@ -287,7 +342,7 @@ export function Budgets() {
     <div className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
       <div className="flex min-w-0 items-center gap-3">
         <span className="text-muted-foreground w-14 shrink-0 text-xs">
-          {new Date(item.date).toLocaleDateString(undefined, {
+          {new Date(item.date).toLocaleDateString(locale, {
             day: '2-digit',
             month: 'short',
             timeZone: 'UTC',
@@ -345,8 +400,8 @@ export function Budgets() {
     onPrevious: () => void
     onNext: () => void
   }) => (
-    <div className="mt-4 flex items-center justify-between">
-      <div className="text-sm text-gray-700">
+    <div className="mt-4 flex items-center justify-between gap-2">
+      <div className="text-muted-foreground text-sm">
         {(page - 1) * ITEMS_PER_PAGE + 1}–
         {Math.min(page * ITEMS_PER_PAGE, totalItems)} {t('transactions.of')}{' '}
         {totalItems}
@@ -354,22 +409,21 @@ export function Budgets() {
       <div className="flex gap-2">
         <Button
           variant="outline"
-          size="sm"
+          size="icon"
           onClick={onPrevious}
           disabled={page === 1}
+          aria-label={t('transactions.previous')}
         >
-          {t('transactions.previous')}
+          <ChevronLeft className="h-4 w-4" />
         </Button>
-        <span className="flex items-center px-4 text-sm">
-          {t('transactions.page')} {page} {t('transactions.of')} {totalPages}
-        </span>
         <Button
           variant="outline"
-          size="sm"
+          size="icon"
           onClick={onNext}
           disabled={page === totalPages}
+          aria-label={t('transactions.next')}
         >
-          {t('transactions.next')}
+          <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
     </div>
@@ -393,7 +447,7 @@ export function Budgets() {
       </div>
 
       {loading ? (
-        <Loader className="m-auto h-8 w-8 animate-spin" />
+        <Loader className="m-auto" />
       ) : (
         <>
           <div>
@@ -420,36 +474,102 @@ export function Budgets() {
               </Button>
             </div>
 
-            <Calendar
-              mode="single"
-              month={new Date(year, month - 1, 1)}
-              selected={undefined}
-              showOutsideDays={false}
-              onSelect={(date) => {
-                if (!date) return
-                setEditingItem(null)
-                setSelectedDate(date)
-                setDialogKey((k) => k + 1)
-                setIsAddOpen(true)
-              }}
-              className="w-full"
-              classNames={{
-                nav: 'hidden',
-                month_caption: 'hidden',
-                month: 'w-full',
-                month_grid: 'w-full',
-              }}
-              components={{
-                DayButton: (props) => (
-                  <BudgetDayButton
-                    {...props}
-                    totals={dailyTotals}
-                    itemsByDay={itemsByDay}
-                    currency={currency}
-                  />
-                ),
-              }}
-            />
+            <div className="flex flex-col gap-6 md:flex-row md:items-start">
+              <div className="w-full md:max-w-2xl">
+                <Calendar
+                  mode="single"
+                  month={new Date(year, month - 1, 1)}
+                  selected={undefined}
+                  showOutsideDays={false}
+                  locale={language === 'es' ? es : undefined}
+                  onSelect={(date) => {
+                    if (!date) return
+                    setEditingItem(null)
+                    setSelectedDate(date)
+                    setDialogKey((k) => k + 1)
+                    setIsAddOpen(true)
+                  }}
+                  className="w-full"
+                  classNames={{
+                    nav: 'hidden',
+                    month_caption: 'hidden',
+                    month: 'w-full',
+                    month_grid: 'w-full',
+                  }}
+                  components={{
+                    DayButton: (props) => (
+                      <BudgetDayButton
+                        {...props}
+                        totals={dailyTotals}
+                        actuals={actualByDay}
+                        itemsByDay={itemsByDay}
+                        currency={currency}
+                        locale={locale}
+                        labels={{
+                          planned: t('overview.cashFlowPlanned'),
+                          actual: t('overview.cashFlowActual'),
+                        }}
+                      />
+                    ),
+                  }}
+                />
+              </div>
+
+              {isCurrentMonth && (
+                <div className="hidden md:block md:flex-1">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium capitalize">
+                        {now.toLocaleDateString(locale, {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long',
+                        })}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          {t('overview.cashFlowPlanned')}
+                        </span>
+                        <span className="text-primary font-semibold">
+                          ${formatMoney(todayPlannedTotal, currency)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          {t('overview.cashFlowActual')}
+                        </span>
+                        <span className="font-semibold text-amber-600 dark:text-amber-500">
+                          ${formatMoney(todayActualTotal, currency)}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1.5 border-t pt-3">
+                        {todayItems.length === 0 ? (
+                          <p className="text-muted-foreground text-xs">
+                            {t('budgets.noItemsToday')}
+                          </p>
+                        ) : (
+                          todayItems.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center justify-between gap-2 text-xs"
+                            >
+                              <span className="text-muted-foreground truncate">
+                                {item.description || item.categoryName}
+                              </span>
+                              <span className="shrink-0 font-medium">
+                                ${formatMoney(item.amount, currency)}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </div>
 
             <AddBudgetItemDialog
               key={dialogKey}

@@ -9,6 +9,7 @@ import {
   useBudgetOverview,
   useOverviewData,
 } from '@/lib/queries'
+import { cn } from '@/lib/utils'
 import {
   DollarSign,
   Landmark,
@@ -125,10 +126,7 @@ export function Overview() {
     }))
 
     return [...transactionItems, ...transferItems]
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 5)
   }, [accounts, transactions, transfers])
 
@@ -445,27 +443,54 @@ export function Overview() {
                         href={`?account&id=${account.id}`}
                         className="block"
                       >
-                        <Card className="transition-shadow hover:shadow-md">
+                        <Card
+                          className="transition-shadow hover:shadow-md"
+                          style={
+                            account.color
+                              ? {
+                                  borderLeftColor: account.color,
+                                  borderLeftWidth: '4px',
+                                }
+                              : undefined
+                          }
+                        >
                           <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="truncate text-sm font-medium">
                               {account.name}
                             </CardTitle>
                             {account.logoUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element -- external/dynamic logo domains, not worth remotePatterns config
-                              <img
-                                src={account.logoUrl}
-                                alt=""
-                                className="h-4 w-4 shrink-0 object-contain"
-                              />
+                              <div className="bg-muted h-7 w-7 shrink-0 overflow-hidden rounded-md border">
+                                {/* eslint-disable-next-line @next/next/no-img-element -- external/dynamic logo domains, not worth remotePatterns config */}
+                                <img
+                                  src={account.logoUrl}
+                                  alt=""
+                                  className="h-full w-full object-contain"
+                                />
+                              </div>
                             ) : (
-                              <Icon
-                                className="text-muted-foreground h-4 w-4 shrink-0"
+                              <div
+                                className={cn(
+                                  'shrink-0 rounded-md p-1.5',
+                                  !account.color && 'bg-primary/10'
+                                )}
                                 style={
                                   account.color
-                                    ? { color: account.color }
+                                    ? { backgroundColor: `${account.color}26` }
                                     : undefined
                                 }
-                              />
+                              >
+                                <Icon
+                                  className={cn(
+                                    'h-4 w-4',
+                                    !account.color && 'text-primary'
+                                  )}
+                                  style={
+                                    account.color
+                                      ? { color: account.color }
+                                      : undefined
+                                  }
+                                />
+                              </div>
                             )}
                           </CardHeader>
                           <CardContent>

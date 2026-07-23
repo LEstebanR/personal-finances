@@ -203,18 +203,19 @@ model User {
 }
 
 model Debt {
-  id               String        @id @default(uuid())
+  id               String               @id @default(uuid())
   userId           String
   name             String
-  type             String        @default("loan")
-  originalAmount   Decimal       @db.Decimal(15, 2)
-  remainingBalance Decimal       @db.Decimal(15, 2)
-  creditLimit      Decimal?      @db.Decimal(15, 2)
-  minimumPayment   Decimal?      @db.Decimal(15, 2)
+  type             String               @default("loan")
+  originalAmount   Decimal              @db.Decimal(15, 2)
+  remainingBalance Decimal              @db.Decimal(15, 2)
+  creditLimit      Decimal?             @db.Decimal(15, 2)
+  minimumPayment   Decimal?             @db.Decimal(15, 2)
   paymentDueDay    Int?
-  createdAt        DateTime      @default(now())
-  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime             @default(now())
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   payments         DebtPayment[]
+  interestCharges  DebtInterestCharge[]
   transactions     Transaction[]
   budgetItems      BudgetItem[]
 
@@ -235,6 +236,23 @@ model DebtPayment {
 
   @@index([debtId])
   @@index([accountId])
+  @@index([userId])
+}
+
+// Interest accrued on a debt: increases remainingBalance without touching
+// originalAmount, keeping a separate record from principal payments so the
+// two can be told apart later.
+model DebtInterestCharge {
+  id        String   @id @default(uuid())
+  debtId    String
+  userId    String
+  amount    Decimal  @db.Decimal(15, 2)
+  date      DateTime
+  note      String?
+  createdAt DateTime @default(now())
+  debt      Debt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
+
+  @@index([debtId])
   @@index([userId])
 }
 

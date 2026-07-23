@@ -9,11 +9,11 @@ import {
   Home,
   Landmark,
   Lock,
+  type LucideIcon,
   PiggyBank,
   ShieldCheck,
   TrendingUp,
   Wallet,
-  type LucideIcon,
 } from 'lucide-react'
 
 export const ACCOUNT_ICONS: Record<string, LucideIcon> = {

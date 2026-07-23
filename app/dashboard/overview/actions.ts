@@ -15,11 +15,11 @@ export async function getOverviewData() {
     prisma.transaction.findMany({
       where: { userId: session.user.id },
       include: { category: true, account: true, debt: true },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
     }),
     prisma.transfer.findMany({
       where: { userId: session.user.id },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
     }),
     prisma.debt.findMany({
       where: { userId: session.user.id },

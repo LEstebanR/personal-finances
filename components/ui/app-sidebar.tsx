@@ -26,12 +26,16 @@ import {
   Wallet,
 } from 'lucide-react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 
 import { Logo } from './logo'
 
-export function AppSidebar() {
+function AppSidebarContent() {
   const { isMobile, setOpenMobile } = useSidebar()
   const { t } = useLanguage()
+  const searchParams = useSearchParams()
+  const currentView = Array.from(searchParams.entries())[0]?.[0] || 'overview'
 
   const closeOnMobile = () => {
     if (isMobile) setOpenMobile(false)
@@ -75,9 +79,14 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {optionsMenu.map((option) => {
+                const isActive = currentView === option.href.slice(1)
                 return (
                   <SidebarMenuItem key={option.href}>
-                    <SidebarMenuButton className="cursor-pointer" asChild>
+                    <SidebarMenuButton
+                      className="cursor-pointer"
+                      isActive={isActive}
+                      asChild
+                    >
                       <Link href={option.href} onClick={closeOnMobile}>
                         {option.icon} {option.label}
                       </Link>
@@ -95,9 +104,14 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {optionsSettings.map((option) => {
+                const isActive = currentView === option.href.slice(1)
                 return (
                   <SidebarMenuItem key={option.href}>
-                    <SidebarMenuButton className="cursor-pointer" asChild>
+                    <SidebarMenuButton
+                      className="cursor-pointer"
+                      isActive={isActive}
+                      asChild
+                    >
                       <Link href={option.href} onClick={closeOnMobile}>
                         {option.icon} {option.label}
                       </Link>
@@ -110,5 +124,13 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarFooter>
     </Sidebar>
+  )
+}
+
+export function AppSidebar() {
+  return (
+    <Suspense fallback={<Sidebar className="" />}>
+      <AppSidebarContent />
+    </Suspense>
   )
 }

@@ -66,7 +66,7 @@ export default async function AuthenticatedLayout({
       >
         <SidebarProvider>
           <AppSidebar />
-          <main className="flex min-h-svh w-full flex-col">
+          <main className="flex min-h-svh w-full min-w-0 flex-col pt-14">
             <Header user={session?.user} />
             <CurrencyProvider currency={user?.currency ?? 'usd'}>
               <QueryProvider>

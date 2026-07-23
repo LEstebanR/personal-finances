@@ -3,7 +3,10 @@ const KNOWN_INSTITUTIONS: { keywords: string[]; domain: string }[] = [
   { keywords: ['nequi'], domain: 'nequi.com.co' },
   { keywords: ['davivienda'], domain: 'davivienda.com' },
   { keywords: ['daviplata'], domain: 'daviplata.com' },
-  { keywords: ['banco de bogota', 'bancodebogota'], domain: 'bancodebogota.com' },
+  {
+    keywords: ['banco de bogota', 'bancodebogota'],
+    domain: 'bancodebogota.com',
+  },
   { keywords: ['bbva'], domain: 'bbva.com.co' },
   { keywords: ['banco popular'], domain: 'bancopopular.com.co' },
   { keywords: ['caja social'], domain: 'bancocajasocial.com' },
@@ -15,7 +18,10 @@ const KNOWN_INSTITUTIONS: { keywords: string[]; domain: string }[] = [
   { keywords: ['lulo bank', 'lulobank'], domain: 'lulobank.com' },
   { keywords: ['rappipay', 'rappi pay'], domain: 'rappipay.co' },
   { keywords: ['bancoomeva', 'coomeva'], domain: 'bancoomeva.com.co' },
-  { keywords: ['banco falabella', 'falabella'], domain: 'bancofalabella.com.co' },
+  {
+    keywords: ['banco falabella', 'falabella'],
+    domain: 'bancofalabella.com.co',
+  },
   { keywords: ['powwi'], domain: 'powwi.com' },
   { keywords: ['paypal'], domain: 'paypal.com' },
   { keywords: ['visa'], domain: 'visa.com' },
@@ -39,7 +45,10 @@ export function suggestLogoUrl(accountName: string): string | null {
     for (const keyword of institution.keywords) {
       if (normalized.includes(keyword)) {
         if (!bestMatch || keyword.length > bestMatch.keywordLength) {
-          bestMatch = { domain: institution.domain, keywordLength: keyword.length }
+          bestMatch = {
+            domain: institution.domain,
+            keywordLength: keyword.length,
+          }
         }
       }
     }

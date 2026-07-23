@@ -2,7 +2,7 @@
 
 import { deleteDebt, updateDebt } from '@/app/dashboard/debts/actions'
 import { useLanguage } from '@/components/language-provider'
-import { Loader, Trash2 } from 'lucide-react'
+import { Loader, Percent, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
@@ -22,6 +22,7 @@ import { CurrencyInput } from '../ui/currency-input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
+import { AddDebtInterestDialog } from './add-debt-interest-dialog'
 import { useDashboardRefresh } from './refresh-provider'
 
 interface Debt {
@@ -128,6 +129,15 @@ export function EditDebtDialog({
               />
             </div>
           </div>
+          <AddDebtInterestDialog
+            debt={debt}
+            trigger={
+              <Button type="button" variant="outline" className="w-full">
+                <Percent className="h-4 w-4" />
+                {t('debts.addInterest')}
+              </Button>
+            }
+          />
           <div className="flex gap-2">
             <AlertDialog>
               <AlertDialogTrigger asChild>

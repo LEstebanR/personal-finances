@@ -4,10 +4,11 @@ import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
 import { useCategoryMonthlyTotals } from '@/lib/queries'
-import { ChevronLeft, ChevronRight, Loader, Table } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Table } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 import { Button } from '../ui/button'
+import { Loader } from '../ui/loader'
 
 const MONTH_KEYS = [
   'january',
@@ -71,7 +72,7 @@ export function SpendingTrends() {
       </div>
 
       {loading ? (
-        <Loader className="m-auto h-8 w-8 animate-spin" />
+        <Loader className="m-auto" />
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 text-center">
           <Table className="mb-3 h-12 w-12 text-gray-300" />

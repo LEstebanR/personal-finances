@@ -7,8 +7,9 @@ import { useAccounts, useTransactions, useTransfers } from '@/lib/queries'
 import {
   ArrowDown,
   ArrowUp,
+  ChevronLeft,
+  ChevronRight,
   CreditCard,
-  Loader,
   PlusIcon,
   X,
 } from 'lucide-react'
@@ -17,6 +18,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button } from '../ui/button'
 import { DatePicker } from '../ui/date-picker'
 import { Input } from '../ui/input'
+import { Loader } from '../ui/loader'
 import {
   Select,
   SelectContent,
@@ -369,16 +371,20 @@ export function Transactions() {
             </SelectContent>
           </Select>
           <div className="flex items-center gap-2">
-            <DatePicker
-              value={dateFrom}
-              onChange={setDateFrom}
-              placeholder={t('transactions.dateFrom')}
-            />
-            <DatePicker
-              value={dateTo}
-              onChange={setDateTo}
-              placeholder={t('transactions.dateTo')}
-            />
+            <div className="min-w-0 flex-1">
+              <DatePicker
+                value={dateFrom}
+                onChange={setDateFrom}
+                placeholder={t('transactions.dateFrom')}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <DatePicker
+                value={dateTo}
+                onChange={setDateTo}
+                placeholder={t('transactions.dateTo')}
+              />
+            </div>
           </div>
           <Button
             variant="ghost"
@@ -397,25 +403,25 @@ export function Transactions() {
       <div className="mt-6 w-full">
         {loading ? (
           <div className="flex justify-center">
-            <Loader className="h-8 w-8 animate-spin" />
+            <Loader />
           </div>
         ) : combinedItems.length === 0 ? (
           <EmptyState />
         ) : (
           <Tabs defaultValue="all" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="all">
+            <TabsList className="w-full justify-start overflow-x-auto">
+              <TabsTrigger value="all" className="shrink-0">
                 {t('transactions.all')} ({combinedItems.length})
               </TabsTrigger>
-              <TabsTrigger value="income">
+              <TabsTrigger value="income" className="shrink-0">
                 {t('transactions.income')} ({filterItemsByType('income').length}
                 )
               </TabsTrigger>
-              <TabsTrigger value="expense">
+              <TabsTrigger value="expense" className="shrink-0">
                 {t('transactions.expense')} (
                 {filterItemsByType('expense').length})
               </TabsTrigger>
-              <TabsTrigger value="transfer">
+              <TabsTrigger value="transfer" className="shrink-0">
                 {t('transactions.transfer')} (
                 {filterItemsByType('transfer').length})
               </TabsTrigger>
@@ -557,38 +563,33 @@ export function Transactions() {
                       </div>
 
                       {totalPages > 1 && (
-                        <div className="mt-4 flex items-center justify-between">
-                          <div className="text-sm text-gray-700">
-                            {t('transactions.showing')}{' '}
-                            {(currentPage - 1) * transactionsPerPage + 1}{' '}
-                            {t('transactions.to')}{' '}
+                        <div className="mt-4 flex items-center justify-between gap-2">
+                          <div className="text-muted-foreground text-sm">
+                            {(currentPage - 1) * transactionsPerPage + 1}–
                             {Math.min(
                               currentPage * transactionsPerPage,
                               filteredItems.length
                             )}{' '}
-                            {t('transactions.of')} {filteredItems.length}{' '}
-                            {t('transactions.items')}
+                            {t('transactions.of')} {filteredItems.length}
                           </div>
                           <div className="flex gap-2">
                             <Button
                               variant="outline"
-                              size="sm"
+                              size="icon"
                               onClick={() => setCurrentPage(currentPage - 1)}
                               disabled={currentPage === 1}
+                              aria-label={t('transactions.previous')}
                             >
-                              {t('transactions.previous')}
+                              <ChevronLeft className="h-4 w-4" />
                             </Button>
-                            <span className="flex items-center px-4 text-sm">
-                              {t('transactions.page')} {currentPage}{' '}
-                              {t('transactions.of')} {totalPages}
-                            </span>
                             <Button
                               variant="outline"
-                              size="sm"
+                              size="icon"
                               onClick={() => setCurrentPage(currentPage + 1)}
                               disabled={currentPage === totalPages}
+                              aria-label={t('transactions.next')}
                             >
-                              {t('transactions.next')}
+                              <ChevronRight className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>

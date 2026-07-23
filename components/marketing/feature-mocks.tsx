@@ -14,9 +14,24 @@ function MockShell({ children }: { children: React.ReactNode }) {
 export function AccountsMock() {
   const { t } = useLanguage()
   const rows = [
-    { label: t('accounts.cash'), amount: '$4.820.000', Icon: Wallet, color: '#10b981' },
-    { label: t('accounts.savings'), amount: '$12.500.000', Icon: PiggyBank, color: '#3b82f6' },
-    { label: t('accounts.caja'), amount: '$650.000', Icon: Lock, color: '#a855f7' },
+    {
+      label: t('accounts.cash'),
+      amount: '$4.820.000',
+      Icon: Wallet,
+      color: '#10b981',
+    },
+    {
+      label: t('accounts.savings'),
+      amount: '$12.500.000',
+      Icon: PiggyBank,
+      color: '#3b82f6',
+    },
+    {
+      label: t('accounts.caja'),
+      amount: '$650.000',
+      Icon: Lock,
+      color: '#a855f7',
+    },
   ]
 
   return (

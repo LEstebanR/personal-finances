@@ -9,7 +9,7 @@ import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
 import { useSubscriptions } from '@/lib/queries'
-import { Loader, PlusIcon, Repeat, Trash2 } from 'lucide-react'
+import { Landmark, PlusIcon, Repeat, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
@@ -26,6 +26,8 @@ import {
 } from '../ui/alert-dialog'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import { Loader } from '../ui/loader'
 import {
   AddSubscriptionDialog,
   EditableSubscription,
@@ -223,15 +225,7 @@ export function Subscriptions() {
   return (
     <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
       <div className="flex w-full flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{t('subscriptions.title')}</h1>
-          {!loading && subscriptions.length > 0 && (
-            <p className="text-muted-foreground text-sm">
-              {t('subscriptions.totalMonthly')}: $
-              {formatMoney(totalMonthly, currency)}
-            </p>
-          )}
-        </div>
+        <h1 className="text-2xl font-bold">{t('subscriptions.title')}</h1>
         <AddSubscriptionDialog
           trigger={
             <Button>
@@ -242,9 +236,30 @@ export function Subscriptions() {
         />
       </div>
 
+      {!loading && subscriptions.length > 0 && (
+        <div className="mt-6 w-full sm:max-w-xs">
+          <Card>
+            <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {t('subscriptions.totalMonthly')}
+              </CardTitle>
+              <Landmark className="text-muted-foreground h-4 w-4" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${formatMoney(totalMonthly, currency)}
+              </div>
+              <p className="text-muted-foreground text-xs">
+                {t('overview.perMonth')}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="mt-6 w-full">
         {loading ? (
-          <Loader className="m-auto h-8 w-8 animate-spin" />
+          <Loader className="m-auto" />
         ) : subscriptions.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Repeat className="mb-4 h-16 w-16 text-gray-300" />

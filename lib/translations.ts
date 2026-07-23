@@ -332,6 +332,8 @@ export const translations = {
       dayOfMonth: 'Day of month',
       dueOnDay: 'Due on day {day}',
       totalOwed: 'Total owed',
+      monthlyDistribution: 'Monthly Payment Distribution',
+      monthlyDistributionDesc: 'Share of total minimum payments by debt',
       paidOfTotal: '${paid} paid of ${total}',
       creatingDebt: 'Creating Debt...',
       debtCreated: 'Debt created successfully!',
@@ -356,6 +358,12 @@ export const translations = {
       paymentRecorded: 'Payment recorded successfully!',
       fromAccount: 'From Account',
       paymentAmount: 'Payment Amount',
+      addInterest: 'Add Interest',
+      addInterestDesc:
+        'Add interest accrued on "{name}". This adds to the balance without changing the original amount.',
+      interestAmount: 'Interest Amount',
+      recordingInterest: 'Recording Interest...',
+      interestRecorded: 'Interest recorded successfully!',
       note: 'Note (Optional)',
     },
     subscriptions: {
@@ -399,8 +407,7 @@ export const translations = {
     budgets: {
       title: 'Budget',
       cashFlow: 'Planned Expenses',
-      cashFlowDesc:
-        'Add expenses for specific days to build this month’s budget.',
+      cashFlowDesc: 'Add expenses for specific days this month.',
       addItem: 'Add Planned Expense',
       editItem: 'Edit Planned Expense',
       addItemDesc: 'Add an expense you expect on a specific day this month.',
@@ -427,6 +434,8 @@ export const translations = {
       itemDeleteFailed: 'Failed to remove. Please try again.',
       noItemsYet:
         'No planned expenses yet. Add one for a specific day to start building this month’s budget.',
+      today: 'Today',
+      noItemsToday: 'No planned expenses for today.',
       occasionalExpenses: 'Occasional Expenses',
       recurringExpenses: 'Recurring Expenses',
       byCategory: 'Budget by Category',
@@ -796,6 +805,8 @@ export const translations = {
       dayOfMonth: 'Día del mes',
       dueOnDay: 'Vence el día {day}',
       totalOwed: 'Total adeudado',
+      monthlyDistribution: 'Distribución de Pagos Mensuales',
+      monthlyDistributionDesc: 'Proporción de los pagos mínimos por deuda',
       paidOfTotal: '${paid} pagados de ${total}',
       creatingDebt: 'Creando deuda...',
       debtCreated: '¡Deuda creada exitosamente!',
@@ -820,6 +831,12 @@ export const translations = {
       paymentRecorded: '¡Pago registrado exitosamente!',
       fromAccount: 'Cuenta de Origen',
       paymentAmount: 'Monto del Pago',
+      addInterest: 'Agregar Interés',
+      addInterestDesc:
+        'Agrega el interés acumulado en "{name}". Esto se suma al saldo sin cambiar el monto original.',
+      interestAmount: 'Monto del Interés',
+      recordingInterest: 'Registrando interés...',
+      interestRecorded: '¡Interés registrado exitosamente!',
       note: 'Nota (Opcional)',
     },
     subscriptions: {
@@ -863,8 +880,7 @@ export const translations = {
     budgets: {
       title: 'Presupuesto',
       cashFlow: 'Gastos Planeados',
-      cashFlowDesc:
-        'Agregar gastos en días específicos para armar el presupuesto de este mes.',
+      cashFlowDesc: 'Agrega gastos para días específicos de este mes.',
       addItem: 'Agregar Gasto Planeado',
       editItem: 'Editar Gasto Planeado',
       addItemDesc:
@@ -892,6 +908,8 @@ export const translations = {
       itemDeleteFailed: 'No se pudo eliminar. Intentar de nuevo.',
       noItemsYet:
         'Todavía no hay gastos planeados. Agregar uno para un día específico para empezar a armar el presupuesto de este mes.',
+      today: 'Hoy',
+      noItemsToday: 'No hay gastos planeados para hoy.',
       occasionalExpenses: 'Gastos Ocasionales',
       recurringExpenses: 'Gastos Recurrentes',
       byCategory: 'Presupuesto por Categoría',

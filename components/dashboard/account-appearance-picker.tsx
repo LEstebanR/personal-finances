@@ -168,18 +168,13 @@ export function AccountAppearancePicker({
               type="button"
               className={cn(
                 'border-border flex h-9 w-9 items-center justify-center rounded-lg border transition-colors',
-                icon === name
-                  ? 'border-foreground bg-muted'
-                  : 'hover:bg-muted'
+                icon === name ? 'border-foreground bg-muted' : 'hover:bg-muted'
               )}
               onClick={() => applyIcon(name)}
               aria-label={name}
               aria-pressed={icon === name}
             >
-              <Icon
-                className="h-4 w-4"
-                style={color ? { color } : undefined}
-              />
+              <Icon className="h-4 w-4" style={color ? { color } : undefined} />
             </button>
           ))}
         </div>

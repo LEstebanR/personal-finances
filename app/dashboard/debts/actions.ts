@@ -38,6 +38,13 @@ const debtPaymentSchema = z.object({
   note: optionalString,
 })
 
+const debtInterestChargeSchema = z.object({
+  debtId: uuidField,
+  amount: positiveAmount,
+  date: validDate,
+  note: optionalString,
+})
+
 export async function getDebts() {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
@@ -259,4 +266,39 @@ export async function deleteDebtPayment(id: string) {
 
     await tx.debtPayment.delete({ where: { id } })
   })
+}
+
+export async function createDebtInterestCharge(formData: FormData) {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  const { debtId, amount, date, note } = debtInterestChargeSchema.parse({
+    debtId: formData.get('debtId'),
+    amount: parseCurrencyInput(formData.get('amount')),
+    date: new Date(formData.get('date') as string),
+    note: formData.get('note'),
+  })
+
+  const charge = await prisma.$transaction(async (tx) => {
+    await tx.debt.findFirstOrThrow({
+      where: { id: debtId, userId: session.user.id },
+    })
+
+    await tx.debt.update({
+      where: { id: debtId },
+      data: { remainingBalance: { increment: amount } },
+    })
+
+    return tx.debtInterestCharge.create({
+      data: {
+        debtId,
+        userId: session.user.id,
+        amount,
+        date,
+        note,
+      },
+    })
+  })
+
+  return { ...charge, amount: Number(charge.amount) }
 }

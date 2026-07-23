@@ -11,13 +11,7 @@ import { Reveal } from '@/components/marketing/reveal'
 import { Button } from '@/components/ui/button'
 import { Footer } from '@/components/ui/footer'
 import { Header } from '@/components/ui/header'
-import {
-  ArrowRight,
-  Check,
-  CreditCard,
-  PiggyBank,
-  Wallet,
-} from 'lucide-react'
+import { ArrowRight, Check, CreditCard, PiggyBank, Wallet } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -373,7 +367,12 @@ export default function Home() {
                       {faq.q}
                     </span>
                     <span className="border-border flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-transform group-open:rotate-45">
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                      >
                         <path
                           d="M6 1v10M1 6h10"
                           stroke="currentColor"

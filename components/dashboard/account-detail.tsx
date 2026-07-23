@@ -6,19 +6,13 @@ import { getAccountIcon } from '@/lib/account-icons'
 import { formatMoney } from '@/lib/currency'
 import { useAccounts, useTransactions, useTransfers } from '@/lib/queries'
 import { cn } from '@/lib/utils'
-import {
-  ArrowLeft,
-  Loader,
-  Lock,
-  Pencil,
-  PiggyBank,
-  Wallet,
-} from 'lucide-react'
+import { ArrowLeft, Lock, Pencil, PiggyBank, Wallet } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useMemo, useState } from 'react'
 
 import { Button } from '../ui/button'
+import { Loader } from '../ui/loader'
 import {
   Table,
   TableBody,
@@ -124,7 +118,7 @@ export function AccountDetail() {
   if (loading) {
     return (
       <div className="flex w-full justify-center p-8">
-        <Loader className="h-8 w-8 animate-spin" />
+        <Loader />
       </div>
     )
   }

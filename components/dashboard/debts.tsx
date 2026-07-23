@@ -4,14 +4,37 @@ import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
 import { useDebts } from '@/lib/queries'
-import { CreditCard, Loader, PlusIcon, Wallet } from 'lucide-react'
+import { CreditCard, Landmark, PlusIcon, Wallet } from 'lucide-react'
 import { useState } from 'react'
+import { Cell, Pie, PieChart } from 'recharts'
 
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../ui/card'
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '../ui/chart'
+import { Loader } from '../ui/loader'
 import { AddDebtDialog } from './add-debt-dialog'
 import { AddDebtPaymentDialog } from './add-debt-payment-dialog'
 import { EditDebtDialog } from './edit-debt-dialog'
+
+const CHART_COLORS = [
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+]
 
 interface Debt {
   id: string
@@ -35,6 +58,31 @@ export function Debts() {
     (total, debt) => total + debt.remainingBalance,
     0
   )
+  const totalMinimumPayment = debts
+    .filter((debt) => debt.remainingBalance > 0)
+    .reduce((total, debt) => total + (debt.minimumPayment ?? 0), 0)
+
+  const monthlyDistribution = debts
+    .filter(
+      (debt) => debt.remainingBalance > 0 && (debt.minimumPayment ?? 0) > 0
+    )
+    .sort((a, b) => (b.minimumPayment ?? 0) - (a.minimumPayment ?? 0))
+    .map((debt, index) => ({
+      name: debt.name,
+      amount: debt.minimumPayment ?? 0,
+      fill: CHART_COLORS[index % CHART_COLORS.length],
+    }))
+
+  const monthlyDistributionConfig = monthlyDistribution.reduce<ChartConfig>(
+    (config, entry, index) => {
+      config[entry.name] = {
+        label: entry.name,
+        color: CHART_COLORS[index % CHART_COLORS.length],
+      }
+      return config
+    },
+    {}
+  )
 
   const DebtCard = ({ debt }: { debt: Debt }) => {
     const paid = debt.originalAmount - debt.remainingBalance
@@ -45,20 +93,18 @@ export function Debts() {
     const isPaidOff = debt.remainingBalance <= 0
 
     return (
-      <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
-        <div className="mb-4 flex items-start justify-between">
-          <div>
-            <h3 className="truncate text-xl font-bold text-gray-900">
+      <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
+        <div className="mb-3 flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="truncate text-base font-bold text-gray-900">
               {debt.name}
             </h3>
-            <div className="mt-1 h-5">
-              {debt.type === 'credit_card' && (
-                <Badge variant="secondary" className="gap-1">
-                  <CreditCard className="h-3 w-3" />
-                  {t('debts.creditCard')}
-                </Badge>
-              )}
-            </div>
+            {debt.type === 'credit_card' && (
+              <Badge variant="secondary" className="mt-1 gap-1">
+                <CreditCard className="h-3 w-3" />
+                {t('debts.creditCard')}
+              </Badge>
+            )}
           </div>
           <Button
             size="sm"
@@ -69,19 +115,19 @@ export function Debts() {
           </Button>
         </div>
 
-        <div className="mb-4">
-          <p className="mb-1 text-sm text-gray-500">
+        <div className="mb-3">
+          <p className="mb-0.5 text-xs text-gray-500">
             {t('debts.remainingBalance')}
           </p>
           <p
-            className={`text-3xl font-bold ${isPaidOff ? 'text-green-600' : 'text-gray-900'}`}
+            className={`text-xl font-bold ${isPaidOff ? 'text-green-600' : 'text-gray-900'}`}
           >
             ${formatMoney(debt.remainingBalance, currency)}
           </p>
         </div>
 
-        <div className="mb-4">
-          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+        <div className="mb-3">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
             <div
               className={`h-full rounded-full ${isPaidOff ? 'bg-green-500' : 'bg-primary'}`}
               style={{ width: `${percentPaid}%` }}
@@ -110,7 +156,7 @@ export function Debts() {
 
         {(typeof debt.minimumPayment === 'number' ||
           typeof debt.paymentDueDay === 'number') && (
-          <div className="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+          <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
             {typeof debt.minimumPayment === 'number' && (
               <span>
                 {t('debts.minimumPayment')}: $
@@ -126,7 +172,7 @@ export function Debts() {
         )}
 
         {!isPaidOff && (
-          <div className="mt-auto pt-2">
+          <div className="mt-auto pt-1">
             <AddDebtPaymentDialog
               debt={debt}
               trigger={
@@ -144,14 +190,7 @@ export function Debts() {
   return (
     <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
       <div className="flex w-full flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{t('debts.title')}</h1>
-          {!loading && debts.length > 0 && (
-            <p className="text-muted-foreground text-sm">
-              {t('debts.totalOwed')}: ${formatMoney(totalRemaining, currency)}
-            </p>
-          )}
-        </div>
+        <h1 className="text-2xl font-bold">{t('debts.title')}</h1>
         <AddDebtDialog
           trigger={
             <Button>
@@ -162,9 +201,109 @@ export function Debts() {
         />
       </div>
 
+      {!loading && debts.length > 0 && (
+        <div className="mt-6 grid w-full gap-4 sm:grid-cols-2">
+          <Card>
+            <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {t('debts.totalOwed')}
+              </CardTitle>
+              <Landmark className="text-muted-foreground h-4 w-4" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${formatMoney(totalRemaining, currency)}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {t('overview.totalMinimumPayments')}
+              </CardTitle>
+              <Landmark className="text-muted-foreground h-4 w-4" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${formatMoney(totalMinimumPayment, currency)}
+              </div>
+              <p className="text-muted-foreground text-xs">
+                {t('overview.perMonth')}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {!loading && monthlyDistribution.length > 0 && (
+        <Card className="mt-6 w-full">
+          <CardHeader>
+            <CardTitle>{t('debts.monthlyDistribution')}</CardTitle>
+            <CardDescription>
+              {t('debts.monthlyDistributionDesc')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center gap-6 sm:flex-row">
+              <ChartContainer
+                config={monthlyDistributionConfig}
+                className="mx-auto aspect-square max-h-64 w-full sm:w-1/2"
+              >
+                <PieChart>
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        nameKey="name"
+                        labelKey="name"
+                        formatter={(value) =>
+                          `$${formatMoney(Number(value), currency)}`
+                        }
+                      />
+                    }
+                  />
+                  <Pie
+                    data={monthlyDistribution}
+                    dataKey="amount"
+                    nameKey="name"
+                    innerRadius={55}
+                    strokeWidth={2}
+                  >
+                    {monthlyDistribution.map((entry) => (
+                      <Cell key={entry.name} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
+              <div className="w-full space-y-2 sm:w-1/2">
+                {monthlyDistribution.map((entry) => (
+                  <div
+                    key={entry.name}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: entry.fill }}
+                      />
+                      <span className="truncate">{entry.name}</span>
+                    </div>
+                    <span className="text-muted-foreground shrink-0 pl-2">
+                      ${formatMoney(entry.amount, currency)} (
+                      {Math.round((entry.amount / totalMinimumPayment) * 100)}
+                      %)
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="mt-6 w-full">
         {loading ? (
-          <Loader className="m-auto h-8 w-8 animate-spin" />
+          <Loader className="m-auto" />
         ) : debts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Wallet className="mb-4 h-16 w-16 text-gray-300" />
@@ -184,7 +323,7 @@ export function Debts() {
             />
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {[...debts]
               .sort((a, b) => b.remainingBalance - a.remainingBalance)
               .map((debt) => (

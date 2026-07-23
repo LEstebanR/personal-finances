@@ -308,6 +308,25 @@ export async function getBudgetOverview(month: number, year: number) {
     .filter((item) => item.amount !== null || item.spent > 0)
 }
 
+export async function getBudgetDailyActuals(month: number, year: number) {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  const expenses = await prisma.transaction.findMany({
+    where: {
+      userId: session.user.id,
+      type: 'expense',
+      date: monthRange(month, year),
+    },
+    select: { date: true, amount: true },
+  })
+
+  return expenses.map((expense) => ({
+    date: expense.date,
+    amount: Number(expense.amount),
+  }))
+}
+
 export async function getBudgetItems(month: number, year: number) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')

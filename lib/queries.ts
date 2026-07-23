@@ -1,5 +1,6 @@
 import { getAccounts } from '@/app/dashboard/accounts/actions'
 import {
+  getBudgetDailyActuals,
   getBudgetItems,
   getBudgetOverview,
 } from '@/app/dashboard/budgets/actions'
@@ -30,6 +31,8 @@ export const queryKeys = {
     ['budget-overview', month, year] as const,
   budgetItems: (month: number, year: number) =>
     ['budget-items', month, year] as const,
+  budgetDailyActuals: (month: number, year: number) =>
+    ['budget-daily-actuals', month, year] as const,
   categoryMonthlyTotals: (year: number) =>
     ['category-monthly-totals', year] as const,
 }
@@ -91,6 +94,14 @@ export function useBudgetItems(month: number, year: number) {
   return useQuery({
     queryKey: queryKeys.budgetItems(month, year),
     queryFn: () => getBudgetItems(month, year),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useBudgetDailyActuals(month: number, year: number) {
+  return useQuery({
+    queryKey: queryKeys.budgetDailyActuals(month, year),
+    queryFn: () => getBudgetDailyActuals(month, year),
     placeholderData: keepPreviousData,
   })
 }

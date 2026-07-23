@@ -2,15 +2,16 @@
 
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
-import { formatMoney } from '@/lib/currency'
 import { getAccountIcon } from '@/lib/account-icons'
+import { formatMoney } from '@/lib/currency'
 import { useAccounts } from '@/lib/queries'
 import { cn } from '@/lib/utils'
-import { Loader, Lock, Pencil, PiggyBank, PlusIcon, Wallet } from 'lucide-react'
+import { Lock, Pencil, PiggyBank, PlusIcon, Wallet } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 
 import { Button } from '../ui/button'
+import { Loader } from '../ui/loader'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { AddAccountDialog } from './add-account-dialog'
 import { EditAccountDialog } from './edit-account-dialog'
@@ -79,7 +80,10 @@ export function Accounts() {
               </div>
             ) : (
               <div
-                className={cn('rounded-lg p-2', !account.color && 'bg-primary/10')}
+                className={cn(
+                  'rounded-lg p-2',
+                  !account.color && 'bg-primary/10'
+                )}
                 style={
                   account.color
                     ? { backgroundColor: `${account.color}26` }
@@ -175,7 +179,7 @@ export function Accounts() {
 
       <div className="mt-6 w-full">
         {loading ? (
-          <Loader className="m-auto h-8 w-8 animate-spin" />
+          <Loader className="m-auto" />
         ) : accounts.length === 0 ? (
           <EmptyState type="all" />
         ) : (
