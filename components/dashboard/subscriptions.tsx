@@ -11,6 +11,7 @@ import { formatMoney } from '@/lib/currency'
 import { useSubscriptions } from '@/lib/queries'
 import { Landmark, PlusIcon, Repeat, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { Cell, Pie, PieChart } from 'recharts'
 import { toast } from 'sonner'
 
 import {
@@ -26,13 +27,33 @@ import {
 } from '../ui/alert-dialog'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../ui/card'
+import {
+  type ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '../ui/chart'
 import { Loader } from '../ui/loader'
 import {
   AddSubscriptionDialog,
   EditableSubscription,
 } from './add-subscription-dialog'
 import { useDashboardRefresh } from './refresh-provider'
+
+const CHART_COLORS = [
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+]
 
 const MONTH_KEYS = [
   'january',
@@ -79,6 +100,30 @@ export function Subscriptions() {
         total + (s.frequency === 'yearly' ? s.amount / 12 : s.amount),
       0
     )
+
+  const monthlyDistribution = subscriptions
+    .filter((s) => s.isActive)
+    .map((s) => ({
+      name: s.name,
+      amount: s.frequency === 'yearly' ? s.amount / 12 : s.amount,
+    }))
+    .filter((entry) => entry.amount > 0)
+    .sort((a, b) => b.amount - a.amount)
+    .map((entry, index) => ({
+      ...entry,
+      fill: CHART_COLORS[index % CHART_COLORS.length],
+    }))
+
+  const monthlyDistributionConfig = monthlyDistribution.reduce<ChartConfig>(
+    (config, entry, index) => {
+      config[entry.name] = {
+        label: entry.name,
+        color: CHART_COLORS[index % CHART_COLORS.length],
+      }
+      return config
+    },
+    {}
+  )
 
   const handleCancel = async (id: string) => {
     try {
@@ -237,7 +282,7 @@ export function Subscriptions() {
       </div>
 
       {!loading && subscriptions.length > 0 && (
-        <div className="mt-6 w-full sm:max-w-xs">
+        <div className="mt-6 grid w-full gap-4 lg:grid-cols-[1fr_2fr]">
           <Card>
             <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -252,8 +297,93 @@ export function Subscriptions() {
               <p className="text-muted-foreground text-xs">
                 {t('overview.perMonth')}
               </p>
+              {monthlyDistribution.length > 0 && (
+                <div className="mt-4 space-y-2 border-t pt-3">
+                  {monthlyDistribution.map((entry) => (
+                    <div
+                      key={entry.name}
+                      className="flex items-center justify-between gap-2 text-sm"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: entry.fill }}
+                        />
+                        <span className="truncate">{entry.name}</span>
+                      </div>
+                      <span className="text-muted-foreground shrink-0">
+                        ${formatMoney(entry.amount, currency)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
+
+          {monthlyDistribution.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('subscriptions.monthlyDistribution')}</CardTitle>
+                <CardDescription>
+                  {t('subscriptions.monthlyDistributionDesc')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center gap-6 sm:flex-row">
+                  <ChartContainer
+                    config={monthlyDistributionConfig}
+                    className="mx-auto aspect-square max-h-64 w-full sm:w-1/2"
+                  >
+                    <PieChart>
+                      <ChartTooltip
+                        content={
+                          <ChartTooltipContent
+                            nameKey="name"
+                            labelKey="name"
+                            formatter={(value) =>
+                              `$${formatMoney(Number(value), currency)}`
+                            }
+                          />
+                        }
+                      />
+                      <Pie
+                        data={monthlyDistribution}
+                        dataKey="amount"
+                        nameKey="name"
+                        innerRadius={55}
+                        strokeWidth={2}
+                      >
+                        {monthlyDistribution.map((entry) => (
+                          <Cell key={entry.name} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ChartContainer>
+                  <div className="w-full space-y-2 sm:w-1/2">
+                    {monthlyDistribution.map((entry) => (
+                      <div
+                        key={entry.name}
+                        className="flex items-center justify-between text-sm"
+                      >
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: entry.fill }}
+                          />
+                          <span className="truncate">{entry.name}</span>
+                        </div>
+                        <span className="text-muted-foreground shrink-0 pl-2">
+                          ${formatMoney(entry.amount, currency)} (
+                          {Math.round((entry.amount / totalMonthly) * 100)}%)
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 

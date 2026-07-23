@@ -215,7 +215,11 @@ export function Budgets() {
 
   const isCurrentMonth =
     month === now.getMonth() + 1 && year === now.getFullYear()
-  const todayKey = dbDateKey(now)
+  // `now` is a real local instant (not a UTC-midnight storage date like the
+  // ones dbDateKey expects), so it must be keyed the same way calendar cells
+  // are — with local getters — or the "today" card can point at the wrong
+  // day for negative UTC-offset timezones.
+  const todayKey = localDateKey(now)
 
   const { dailyTotals, itemsByDay } = useMemo(() => {
     const totals = new Map<string, number>()
