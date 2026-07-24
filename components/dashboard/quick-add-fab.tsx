@@ -1,7 +1,7 @@
 'use client'
 
 import { useLanguage } from '@/components/language-provider'
-import { CreditCard, Landmark, PlusIcon, Wallet } from 'lucide-react'
+import { CreditCard, Landmark, PlusIcon, Repeat, Wallet } from 'lucide-react'
 import { useState } from 'react'
 
 import { Button } from '../ui/button'
@@ -13,6 +13,7 @@ import {
 } from '../ui/dropdown-menu'
 import { AddAccountDialog } from './add-account-dialog'
 import { AddDebtDialog } from './add-debt-dialog'
+import { AddSubscriptionDialog } from './add-subscription-dialog'
 import { AddTransactionDialog } from './add-transaction-dialog'
 
 export function QuickAddFab() {
@@ -20,6 +21,7 @@ export function QuickAddFab() {
   const [isTransactionOpen, setIsTransactionOpen] = useState(false)
   const [isAccountOpen, setIsAccountOpen] = useState(false)
   const [isDebtOpen, setIsDebtOpen] = useState(false)
+  const [isSubscriptionOpen, setIsSubscriptionOpen] = useState(false)
 
   // Opening a Dialog synchronously from a DropdownMenuItem's onSelect races
   // with the menu's own close/pointer handling and the Dialog dismisses
@@ -66,6 +68,13 @@ export function QuickAddFab() {
             <Landmark />
             {t('debts.addDebt')}
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => openAfterMenuCloses(setIsSubscriptionOpen)}
+            className="gap-4 px-4 py-4 text-lg md:gap-2 md:px-2 md:py-1.5 md:text-sm [&_svg]:size-6 md:[&_svg]:size-4"
+          >
+            <Repeat />
+            {t('subscriptions.addSubscription')}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -75,6 +84,10 @@ export function QuickAddFab() {
       />
       <AddAccountDialog open={isAccountOpen} onOpenChange={setIsAccountOpen} />
       <AddDebtDialog open={isDebtOpen} onOpenChange={setIsDebtOpen} />
+      <AddSubscriptionDialog
+        open={isSubscriptionOpen}
+        onOpenChange={setIsSubscriptionOpen}
+      />
     </>
   )
 }

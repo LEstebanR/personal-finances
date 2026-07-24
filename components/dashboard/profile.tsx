@@ -1,6 +1,6 @@
 'use client'
 
-import { getProfile, updateProfile } from '@/app/dashboard/profile/actions'
+import { updateProfile } from '@/app/dashboard/profile/actions'
 import { useLanguage } from '@/components/language-provider'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +23,8 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TimezoneCombobox } from '@/components/ui/timezone-combobox'
+import { queryKeys, useProfile } from '@/lib/queries'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Calendar,
   Loader,
@@ -31,33 +33,14 @@ import {
   TrendingUp,
   Wallet,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
-
-interface ProfileData {
-  name: string
-  email: string
-  image: string | null
-  currency: string
-  timezone: string
-  budgetPeriod: string
-  memberSince: Date
-  totalTransactions: number
-  totalAccounts: number
-}
 
 export function Profile() {
   const { t, language } = useLanguage()
-  const [profile, setProfile] = useState<ProfileData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const { data: profile, isLoading: loading } = useProfile()
   const [isSaving, setIsSaving] = useState(false)
-
-  useEffect(() => {
-    getProfile()
-      .then(setProfile)
-      .catch((error) => console.error('Error loading profile:', error))
-      .finally(() => setLoading(false))
-  }, [])
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -66,7 +49,10 @@ export function Profile() {
 
     try {
       const updated = await updateProfile(formData)
-      setProfile((prev) => (prev ? { ...prev, name: updated.name } : prev))
+      queryClient.setQueryData(
+        queryKeys.profile,
+        (prev: typeof profile) => prev && { ...prev, name: updated.name }
+      )
       toast.success(t('profile.updateSuccess'))
     } catch (error) {
       console.error('Error updating profile:', error)
@@ -78,7 +64,7 @@ export function Profile() {
 
   if (loading || !profile) {
     return (
-      <div className="flex w-full flex-col gap-4 rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
+      <div className="flex w-full flex-col gap-4 rounded-md p-4 md:mt-4 md:w-11/12 md:p-8">
         <Skeleton className="h-8 w-48" />
         <div className="grid gap-4 md:grid-cols-3">
           <Skeleton className="h-64" />
@@ -91,12 +77,9 @@ export function Profile() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex w-full flex-col gap-4 rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8"
+      className="flex w-full flex-col gap-4 rounded-md p-4 md:mt-4 md:w-11/12 md:p-8"
     >
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold tracking-tight">
-          {t('profile.title')}
-        </h2>
+      <div className="flex items-center justify-end">
         <Button type="submit" disabled={isSaving}>
           {isSaving ? (
             <>

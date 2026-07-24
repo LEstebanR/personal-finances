@@ -1,6 +1,10 @@
 'use client'
 
-import { deleteBudgetItem } from '@/app/dashboard/budgets/actions'
+import {
+  cancelRecurringExpense,
+  deleteBudgetItem,
+} from '@/app/dashboard/budgets/actions'
+import { cancelSubscription } from '@/app/dashboard/subscriptions/actions'
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
@@ -303,10 +307,18 @@ export function Budgets() {
     recurringPageClamped * ITEMS_PER_PAGE
   )
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (item: (typeof items)[number]) => {
     try {
-      await deleteBudgetItem(id)
-      toast.success(t('budgets.itemDeleted'))
+      if (item.recurringExpenseId) {
+        await cancelRecurringExpense(item.recurringExpenseId)
+        toast.success(t('budgets.recurringCancelled'))
+      } else if (item.subscriptionId) {
+        await cancelSubscription(item.subscriptionId)
+        toast.success(t('subscriptions.cancelSuccess'))
+      } else {
+        await deleteBudgetItem(item.id)
+        toast.success(t('budgets.itemDeleted'))
+      }
       triggerRefresh()
     } catch (error) {
       console.error('Error deleting budget item:', error)
@@ -383,7 +395,7 @@ export function Budgets() {
           size="icon"
           variant="ghost"
           className="text-destructive hover:text-destructive h-7 w-7"
-          onClick={() => handleDelete(item.id)}
+          onClick={() => handleDelete(item)}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
@@ -434,9 +446,8 @@ export function Budgets() {
   )
 
   return (
-    <div className="flex w-full flex-col gap-6 rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
-      <div className="flex w-full items-center justify-between">
-        <h1 className="text-2xl font-bold">{t('budgets.title')}</h1>
+    <div className="flex w-full flex-col gap-6 rounded-md p-4 md:mt-4 md:w-11/12 md:p-8">
+      <div className="flex w-full items-center justify-end">
         <div className="flex items-center gap-2">
           <Button size="icon" variant="outline" onClick={goToPreviousMonth}>
             <ChevronLeft className="h-4 w-4" />
@@ -456,12 +467,7 @@ export function Budgets() {
         <>
           <div>
             <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h2 className="font-semibold">{t('budgets.cashFlow')}</h2>
-                <p className="text-muted-foreground text-sm">
-                  {t('budgets.cashFlowDesc')}
-                </p>
-              </div>
+              <h2 className="font-semibold">{t('budgets.cashFlow')}</h2>
               <Button
                 size="sm"
                 onClick={() => {
@@ -520,7 +526,7 @@ export function Budgets() {
               </div>
 
               {isCurrentMonth && (
-                <div className="hidden md:block md:flex-1">
+                <div className="md:flex-1">
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium capitalize">
@@ -670,12 +676,16 @@ export function Budgets() {
               <div className="space-y-3">
                 {categoryTotals.map((item) => {
                   const displayAmount = item.amount ?? 0
-                  const percentSpent =
-                    displayAmount > 0
+                  const isZeroBudgetWithSpend =
+                    displayAmount === 0 && item.spent > 0
+                  const percentSpent = isZeroBudgetWithSpend
+                    ? 100
+                    : displayAmount > 0
                       ? Math.min(100, (item.spent / displayAmount) * 100)
                       : 0
                   const isOverBudget =
-                    displayAmount > 0 && item.spent > displayAmount
+                    isZeroBudgetWithSpend ||
+                    (displayAmount > 0 && item.spent > displayAmount)
                   const barColor = isOverBudget
                     ? 'bg-red-500'
                     : percentSpent >= 80

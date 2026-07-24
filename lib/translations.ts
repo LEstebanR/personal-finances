@@ -335,6 +335,7 @@ export const translations = {
       monthlyDistribution: 'Monthly Payment Distribution',
       monthlyDistributionDesc: 'Share of total minimum payments by debt',
       paidOfTotal: '${paid} paid of ${total}',
+      usedOfLimit: '${used} used of ${limit}',
       creatingDebt: 'Creating Debt...',
       debtCreated: 'Debt created successfully!',
       saveFailed: 'Failed to save. Please try again.',
@@ -409,7 +410,6 @@ export const translations = {
     budgets: {
       title: 'Budget',
       cashFlow: 'Planned Expenses',
-      cashFlowDesc: 'Add expenses for specific days this month.',
       addItem: 'Add Planned Expense',
       editItem: 'Edit Planned Expense',
       addItemDesc: 'Add an expense you expect on a specific day this month.',
@@ -810,6 +810,7 @@ export const translations = {
       monthlyDistribution: 'Distribución de Pagos Mensuales',
       monthlyDistributionDesc: 'Proporción de los pagos mínimos por deuda',
       paidOfTotal: '${paid} pagados de ${total}',
+      usedOfLimit: '${used} usados de ${limit}',
       creatingDebt: 'Creando deuda...',
       debtCreated: '¡Deuda creada exitosamente!',
       saveFailed: 'No se pudo guardar. Intentar de nuevo.',
@@ -884,7 +885,6 @@ export const translations = {
     budgets: {
       title: 'Presupuesto',
       cashFlow: 'Gastos Planeados',
-      cashFlowDesc: 'Agrega gastos para días específicos de este mes.',
       addItem: 'Agregar Gasto Planeado',
       editItem: 'Editar Gasto Planeado',
       addItemDesc:

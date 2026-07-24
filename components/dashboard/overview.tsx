@@ -295,7 +295,7 @@ export function Overview() {
 
   if (loading) {
     return (
-      <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
+      <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:p-8">
         <div className="w-full space-y-6">
           <Skeleton className="h-8 w-48" />
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -311,10 +311,8 @@ export function Overview() {
   }
 
   return (
-    <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
+    <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:p-8">
       <div className="w-full space-y-6">
-        <h1 className="text-2xl font-bold">{t('overview.title')}</h1>
-
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <Card>
             <CardHeader className="flex min-h-10 flex-row items-center justify-between space-y-0 pb-2">

@@ -149,7 +149,7 @@ export function AccountDetail() {
         : t('accounts.savings')
 
   return (
-    <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
+    <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:p-8">
       <div className="w-full space-y-6">
         <Button asChild variant="ghost" className="-ml-2">
           <Link href="?accounts">

@@ -17,9 +17,7 @@ export function Settings() {
   const { t } = useLanguage()
 
   return (
-    <div className="flex w-full flex-col gap-4 rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
-      <h1 className="text-2xl font-bold">{t('nav.settings')}</h1>
-
+    <div className="flex w-full flex-col gap-4 rounded-md p-4 md:mt-4 md:w-11/12 md:p-8">
       <Card>
         <CardHeader>
           <CardTitle>{t('settings.language')}</CardTitle>

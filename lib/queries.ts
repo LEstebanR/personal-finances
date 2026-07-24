@@ -10,6 +10,7 @@ import {
 } from '@/app/dashboard/categories/actions'
 import { getDebts } from '@/app/dashboard/debts/actions'
 import { getOverviewData } from '@/app/dashboard/overview/actions'
+import { getProfile } from '@/app/dashboard/profile/actions'
 import { getCategoryMonthlyTotals } from '@/app/dashboard/spending-trends/actions'
 import { getSubscriptions } from '@/app/dashboard/subscriptions/actions'
 import {
@@ -27,6 +28,7 @@ export const queryKeys = {
   transactions: ['transactions'] as const,
   transfers: ['transfers'] as const,
   overview: ['overview'] as const,
+  profile: ['profile'] as const,
   budgetOverview: (month: number, year: number) =>
     ['budget-overview', month, year] as const,
   budgetItems: (month: number, year: number) =>
@@ -80,6 +82,10 @@ export function useTransfers() {
 
 export function useOverviewData() {
   return useQuery({ queryKey: queryKeys.overview, queryFn: getOverviewData })
+}
+
+export function useProfile() {
+  return useQuery({ queryKey: queryKeys.profile, queryFn: getProfile })
 }
 
 export function useBudgetOverview(month: number, year: number) {

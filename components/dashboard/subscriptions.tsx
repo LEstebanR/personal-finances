@@ -268,9 +268,8 @@ export function Subscriptions() {
   )
 
   return (
-    <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
-      <div className="flex w-full flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold">{t('subscriptions.title')}</h1>
+    <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:p-8">
+      <div className="flex w-full justify-end">
         <AddSubscriptionDialog
           trigger={
             <Button>

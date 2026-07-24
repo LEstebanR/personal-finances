@@ -49,9 +49,8 @@ export function SpendingTrends() {
   const grandTotal = monthTotals.reduce((sum, amount) => sum + amount, 0)
 
   return (
-    <div className="flex w-full flex-col gap-6 rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
-      <div className="flex w-full items-center justify-between">
-        <h1 className="text-2xl font-bold">{t('spendingTrends.title')}</h1>
+    <div className="flex w-full flex-col gap-6 rounded-md p-4 md:mt-4 md:w-11/12 md:p-8">
+      <div className="flex w-full items-center justify-end">
         <div className="flex items-center gap-2">
           <Button
             size="icon"

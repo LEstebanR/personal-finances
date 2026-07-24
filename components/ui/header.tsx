@@ -58,12 +58,7 @@ function DashboardHeaderContent({ user }: { user?: HeaderUser | null }) {
       <div className="flex items-center gap-4">
         <SidebarTrigger />
       </div>
-      <Link className="cursor-pointer md:hidden" href="/dashboard">
-        <Logo />
-      </Link>
-      <h2 className="hidden text-lg font-bold capitalize md:block">
-        {viewTitle}
-      </h2>
+      <h2 className="truncate text-lg font-bold capitalize">{viewTitle}</h2>
       <div className="flex items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

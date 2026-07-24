@@ -85,16 +85,24 @@ export function Debts() {
   )
 
   const DebtCard = ({ debt }: { debt: Debt }) => {
+    const isCreditCard = debt.type === 'credit_card'
     const paid = debt.originalAmount - debt.remainingBalance
     const percentPaid =
-      debt.originalAmount > 0
-        ? Math.min(100, Math.max(0, (paid / debt.originalAmount) * 100))
-        : 0
+      isCreditCard && typeof debt.creditLimit === 'number'
+        ? debt.creditLimit > 0
+          ? Math.min(
+              100,
+              Math.max(0, (debt.remainingBalance / debt.creditLimit) * 100)
+            )
+          : 0
+        : debt.originalAmount > 0
+          ? Math.min(100, Math.max(0, (paid / debt.originalAmount) * 100))
+          : 0
     const isPaidOff = debt.remainingBalance <= 0
 
     return (
       <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
-        <div className="mb-3 flex items-start justify-between gap-2">
+        <div className="mb-3 flex min-h-14 items-start justify-between gap-2">
           <div className="min-w-0">
             <h3 className="truncate text-base font-bold text-gray-900">
               {debt.name}
@@ -134,10 +142,15 @@ export function Debts() {
             />
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            {t('debts.paidOfTotal', {
-              paid: formatMoney(paid, currency),
-              total: formatMoney(debt.originalAmount, currency),
-            })}
+            {isCreditCard && typeof debt.creditLimit === 'number'
+              ? t('debts.usedOfLimit', {
+                  used: formatMoney(debt.remainingBalance, currency),
+                  limit: formatMoney(debt.creditLimit, currency),
+                })
+              : t('debts.paidOfTotal', {
+                  paid: formatMoney(paid, currency),
+                  total: formatMoney(debt.originalAmount, currency),
+                })}
           </p>
         </div>
 
@@ -188,9 +201,8 @@ export function Debts() {
   }
 
   return (
-    <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
-      <div className="flex w-full flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold">{t('debts.title')}</h1>
+    <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:p-8">
+      <div className="flex w-full justify-end">
         <AddDebtDialog
           trigger={
             <Button>

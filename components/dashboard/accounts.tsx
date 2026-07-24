@@ -164,9 +164,8 @@ export function Accounts() {
   }
 
   return (
-    <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:border md:p-8">
-      <div className="flex w-full justify-between">
-        <h1 className="text-2xl font-bold">{t('accounts.title')}</h1>
+    <div className="flex w-full flex-col items-center justify-center rounded-md p-4 md:mt-4 md:w-11/12 md:p-8">
+      <div className="flex w-full justify-end">
         <AddAccountDialog
           trigger={
             <Button>
