@@ -2,9 +2,12 @@
 
 import { deleteDebt, updateDebt } from '@/app/dashboard/debts/actions'
 import { useLanguage } from '@/components/language-provider'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, Percent, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
+import { z } from 'zod'
 
 import {
   AlertDialog,
@@ -20,8 +23,10 @@ import {
 import { Button } from '../ui/button'
 import { CurrencyInput } from '../ui/currency-input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
+import { Form } from '../ui/form'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
+import { TextField } from '../ui/text-field'
 import { AddDebtInterestDialog } from './add-debt-interest-dialog'
 import { useDashboardRefresh } from './refresh-provider'
 
@@ -46,12 +51,26 @@ export function EditDebtDialog({
   const { t } = useLanguage()
   const { triggerRefresh } = useDashboardRefresh()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const schema = z.object({
+    name: z.string().trim().min(1, t('debts.nameRequired')),
+  })
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: { name: debt?.name ?? '' },
+  })
+
+  useEffect(() => {
+    if (!debt) return
+    form.reset({ name: debt.name })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debt?.id])
+
+  const onSubmit = form.handleSubmit(async () => {
     if (!debt) return
     setIsSubmitting(true)
-    const formData = new FormData(e.currentTarget)
+    const formData = new FormData(formRef.current!)
 
     try {
       await updateDebt(debt.id, formData)
@@ -64,7 +83,7 @@ export function EditDebtDialog({
     }
 
     setIsSubmitting(false)
-  }
+  })
 
   const handleDelete = async () => {
     if (!debt) return
@@ -87,91 +106,95 @@ export function EditDebtDialog({
         <DialogHeader>
           <DialogTitle>{t('debts.editDebt')}</DialogTitle>
         </DialogHeader>
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1">
-            <Label>{t('debts.name')}</Label>
-            <Input type="text" name="name" required defaultValue={debt.name} />
-          </div>
-          {debt.type === 'credit_card' && (
-            <div className="flex flex-col gap-1">
-              <Label>{t('debts.creditLimit')}</Label>
-              <CurrencyInput
-                name="creditLimit"
-                defaultValue={
-                  typeof debt.creditLimit === 'number'
-                    ? String(debt.creditLimit)
-                    : undefined
-                }
-              />
+        <Form {...form}>
+          <form
+            ref={formRef}
+            className="flex flex-col gap-4"
+            onSubmit={onSubmit}
+            noValidate
+          >
+            <TextField name="name" label={t('debts.name')} type="text" />
+            {debt.type === 'credit_card' && (
+              <div className="flex flex-col gap-1">
+                <Label>{t('debts.creditLimit')}</Label>
+                <CurrencyInput
+                  name="creditLimit"
+                  defaultValue={
+                    typeof debt.creditLimit === 'number'
+                      ? String(debt.creditLimit)
+                      : undefined
+                  }
+                />
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1">
+                <Label>{t('debts.minimumPayment')}</Label>
+                <CurrencyInput
+                  name="minimumPayment"
+                  defaultValue={
+                    typeof debt.minimumPayment === 'number'
+                      ? String(debt.minimumPayment)
+                      : undefined
+                  }
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label>{t('debts.paymentDueDay')}</Label>
+                <Input
+                  type="number"
+                  name="paymentDueDay"
+                  min={1}
+                  max={31}
+                  placeholder={t('debts.dayOfMonth')}
+                  defaultValue={debt.paymentDueDay ?? undefined}
+                />
+              </div>
             </div>
-          )}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1">
-              <Label>{t('debts.minimumPayment')}</Label>
-              <CurrencyInput
-                name="minimumPayment"
-                defaultValue={
-                  typeof debt.minimumPayment === 'number'
-                    ? String(debt.minimumPayment)
-                    : undefined
-                }
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t('debts.paymentDueDay')}</Label>
-              <Input
-                type="number"
-                name="paymentDueDay"
-                min={1}
-                max={31}
-                placeholder={t('debts.dayOfMonth')}
-                defaultValue={debt.paymentDueDay ?? undefined}
-              />
-            </div>
-          </div>
-          <AddDebtInterestDialog
-            debt={debt}
-            trigger={
-              <Button type="button" variant="outline" className="w-full">
-                <Percent className="h-4 w-4" />
-                {t('debts.addInterest')}
-              </Button>
-            }
-          />
-          <div className="flex gap-2">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button type="button" variant="outline" className="flex-1">
-                  <Trash2 className="h-4 w-4" />
-                  {t('debts.delete')}
+            <AddDebtInterestDialog
+              debt={debt}
+              trigger={
+                <Button type="button" variant="outline" className="w-full">
+                  <Percent className="h-4 w-4" />
+                  {t('debts.addInterest')}
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    {t('debts.deleteConfirmTitle')}
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {t('debts.deleteConfirmDescription')}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t('debts.cancel')}</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete}>
+              }
+            />
+            <div className="flex gap-2">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="outline" className="flex-1">
+                    <Trash2 className="h-4 w-4" />
                     {t('debts.delete')}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <Button className="flex-1" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <Loader className="h-4 w-4 animate-spin" />
-              ) : (
-                t('debts.saveChanges')
-              )}
-            </Button>
-          </div>
-        </form>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {t('debts.deleteConfirmTitle')}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t('debts.deleteConfirmDescription')}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t('debts.cancel')}</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete}>
+                      {t('debts.delete')}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <Button className="flex-1" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <Loader className="h-4 w-4 animate-spin" />
+                ) : (
+                  t('debts.saveChanges')
+                )}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

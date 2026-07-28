@@ -1,6 +1,7 @@
 'use server'
 
 import { parseCurrencyInput } from '@/lib/currency'
+import { FREE_LIMITS, currentMonthRange, getUserPlan } from '@/lib/plan-limits'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
 import {
@@ -84,6 +85,18 @@ export async function getTransfers() {
 export async function createTransaction(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
+
+  const plan = await getUserPlan(session.user.id)
+  if (plan !== 'PRO') {
+    const monthlyCount = await prisma.transaction.count({
+      where: { userId: session.user.id, date: currentMonthRange() },
+    })
+    if (monthlyCount >= FREE_LIMITS.transactionsPerMonth) {
+      throw new Error(
+        `Free plan is limited to ${FREE_LIMITS.transactionsPerMonth} transactions per month. Upgrade to Pro for unlimited transactions.`
+      )
+    }
+  }
 
   const {
     accountId,

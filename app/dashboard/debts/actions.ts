@@ -1,6 +1,7 @@
 'use server'
 
 import { parseCurrencyInput, parseOptionalCurrencyInput } from '@/lib/currency'
+import { FREE_LIMITS, getUserPlan, reconcileDebtLocks } from '@/lib/plan-limits'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
 import {
@@ -49,6 +50,9 @@ export async function getDebts() {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
+  const plan = await getUserPlan(session.user.id)
+  await reconcileDebtLocks(session.user.id, plan)
+
   const debts = await prisma.debt.findMany({
     where: { userId: session.user.id },
     orderBy: { createdAt: 'desc' },
@@ -88,6 +92,18 @@ function parsePaymentDueDay(value: FormDataEntryValue | null): number | null {
 export async function createDebt(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
+
+  const plan = await getUserPlan(session.user.id)
+  if (plan !== 'PRO') {
+    const debtCount = await prisma.debt.count({
+      where: { userId: session.user.id },
+    })
+    if (debtCount >= FREE_LIMITS.debts) {
+      throw new Error(
+        `Free plan is limited to ${FREE_LIMITS.debts} debts. Upgrade to Pro for unlimited debts.`
+      )
+    }
+  }
 
   const rawType = (formData.get('type') as string) || 'loan'
   const {

@@ -16,6 +16,8 @@ interface CurrencyInputProps {
   required?: boolean
   defaultValue?: string
   placeholder?: string
+  onValueChange?: (value: string) => void
+  'aria-invalid'?: boolean
 }
 
 export function CurrencyInput({
@@ -24,6 +26,8 @@ export function CurrencyInput({
   required,
   defaultValue,
   placeholder,
+  onValueChange,
+  ...rest
 }: CurrencyInputProps) {
   const currency = useCurrency()
   const decimals = getCurrencyDecimals(currency)
@@ -44,10 +48,13 @@ export function CurrencyInput({
         required={required}
         placeholder={placeholder ?? (decimals === 0 ? '0' : '0.00')}
         value={value}
-        onChange={(e) =>
-          setValue(formatCurrencyInput(e.target.value, decimals))
-        }
+        onChange={(e) => {
+          const formatted = formatCurrencyInput(e.target.value, decimals)
+          setValue(formatted)
+          onValueChange?.(formatted)
+        }}
         className="pl-6"
+        {...rest}
       />
     </div>
   )

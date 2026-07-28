@@ -3,7 +3,8 @@
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
-import { useCategoryMonthlyTotals } from '@/lib/queries'
+import { FREE_LIMITS, monthsBack } from '@/lib/plan-limits-shared'
+import { useCategoryMonthlyTotals, useProfile } from '@/lib/queries'
 import { ChevronLeft, ChevronRight, Table } from 'lucide-react'
 import { useRef, useState } from 'react'
 
@@ -27,13 +28,24 @@ const MONTH_KEYS = [
 
 const EMPTY_ARRAY: never[] = []
 
+function yearHasAllowedMonth(year: number) {
+  for (let month = 1; month <= 12; month++) {
+    const back = monthsBack(month, year)
+    if (back >= 0 && back < FREE_LIMITS.trendsMonths) return true
+  }
+  return false
+}
+
 export function SpendingTrends() {
   const currency = useCurrency()
   const { t } = useLanguage()
+  const { data: profile } = useProfile()
+  const isFreePlan = profile?.plan !== 'PRO'
   const [year, setYear] = useState(new Date().getFullYear())
   const { data: rows = EMPTY_ARRAY, isLoading: loading } =
     useCategoryMonthlyTotals(year)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const previousYearBlocked = isFreePlan && !yearHasAllowedMonth(year - 1)
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     const el = scrollRef.current
@@ -56,6 +68,12 @@ export function SpendingTrends() {
             size="icon"
             variant="outline"
             onClick={() => setYear((y) => y - 1)}
+            disabled={previousYearBlocked}
+            title={
+              previousYearBlocked
+                ? t('spendingTrends.upgradeForHistory')
+                : undefined
+            }
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>

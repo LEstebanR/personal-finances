@@ -4,12 +4,16 @@ import { createAccount } from '@/app/dashboard/accounts/actions'
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
+import { isPlanLimitError } from '@/lib/plan-limits-shared'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
+import { z } from 'zod'
 
 import { Button } from '../ui/button'
-import { CurrencyInput } from '../ui/currency-input'
+import { CurrencyField } from '../ui/currency-field'
 import {
   Dialog,
   DialogContent,
@@ -18,15 +22,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../ui/dialog'
-import { Input } from '../ui/input'
+import { Form } from '../ui/form'
 import { Label } from '../ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select'
+import { SelectItem } from '../ui/select'
+import { SelectField } from '../ui/select-field'
+import { TextField } from '../ui/text-field'
 import { Textarea } from '../ui/textarea'
 import { AccountAppearancePicker } from './account-appearance-picker'
 import { useDashboardRefresh } from './refresh-provider'
@@ -49,24 +49,40 @@ export function AddAccountDialog({
   const isOpen = controlledOpen ?? internalOpen
   const setIsOpen = setControlledOpen ?? setInternalOpen
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [accountName, setAccountName] = useState('')
-  const [type, setType] = useState(defaultType ?? 'savings')
   const [color, setColor] = useState<string | null>(null)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [icon, setIcon] = useState<string | null>(null)
+  const formRef = useRef<HTMLFormElement>(null)
+
+  const schema = z.object({
+    accountName: z.string().trim().min(1, t('accounts.accountNameRequired')),
+    accountType: z.string().min(1, t('accounts.accountTypeRequired')),
+    initialBalance: z.string().min(1, t('accounts.initialBalanceRequired')),
+  })
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      accountName: '',
+      accountType: defaultType ?? 'savings',
+      initialBalance: '',
+    },
+  })
+  const accountName = form.watch('accountName')
 
   const resetAppearance = () => {
-    setAccountName('')
-    setType(defaultType ?? 'savings')
+    form.reset({
+      accountName: '',
+      accountType: defaultType ?? 'savings',
+      initialBalance: '',
+    })
     setColor(null)
     setLogoUrl(null)
     setIcon(null)
   }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const onSubmit = form.handleSubmit(async () => {
     setIsSubmitting(true)
-    const formData = new FormData(e.currentTarget)
+    const formData = new FormData(formRef.current!)
 
     try {
       const account = await createAccount(formData)
@@ -76,16 +92,19 @@ export function AddAccountDialog({
         }),
       })
       triggerRefresh()
-      e.currentTarget?.reset()
       resetAppearance()
       setIsOpen(false)
     } catch (error) {
       console.error('Insert error:', error)
-      toast.error(t('accounts.accountCreateFailed'))
+      toast.error(
+        isPlanLimitError(error)
+          ? t('accounts.accountLimitReached')
+          : t('accounts.accountCreateFailed')
+      )
     }
 
     setIsSubmitting(false)
-  }
+  })
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -95,70 +114,59 @@ export function AddAccountDialog({
           <DialogTitle>{t('accounts.addAccount')}</DialogTitle>
         </DialogHeader>
         <DialogDescription>{t('accounts.dialogDescription')}</DialogDescription>
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1">
-            <Label>{t('accounts.accountName')}</Label>
-            <Input
-              type="text"
+        <Form {...form}>
+          <form
+            ref={formRef}
+            className="flex flex-col gap-4"
+            onSubmit={onSubmit}
+            noValidate
+          >
+            <TextField
               name="accountName"
-              required
-              value={accountName}
-              onChange={(e) => setAccountName(e.target.value)}
+              label={t('accounts.accountName')}
+              type="text"
             />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label>{t('accounts.accountType')}</Label>
-            <Select
+            <SelectField
               name="accountType"
-              required
-              value={type}
-              onValueChange={(value) =>
-                setType(value as 'cash' | 'savings' | 'caja')
-              }
+              label={t('accounts.accountType')}
+              placeholder={t('accounts.selectAccountType')}
             >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t('accounts.selectAccountType')}>
-                  {t(`accounts.${type}`)}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cash">{t('accounts.cash')}</SelectItem>
-                <SelectItem value="savings">{t('accounts.savings')}</SelectItem>
-                <SelectItem value="caja">{t('accounts.caja')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label>{t('accounts.initialBalance')}</Label>
-            <CurrencyInput name="initialBalance" required />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label>{t('accounts.description')}</Label>
-            <Textarea name="description" className="resize-none" />
-          </div>
-          <AccountAppearancePicker
-            accountName={accountName}
-            color={color}
-            onColorChange={setColor}
-            logoUrl={logoUrl}
-            onLogoChange={setLogoUrl}
-            icon={icon}
-            onIconChange={setIcon}
-          />
-          <input type="hidden" name="color" value={color ?? ''} />
-          <input type="hidden" name="logoUrl" value={logoUrl ?? ''} />
-          <input type="hidden" name="icon" value={icon ?? ''} />
-          <Button className="w-full" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader className="mr-2 h-4 w-4 animate-spin" />
-                {t('accounts.creatingAccount')}
-              </>
-            ) : (
-              t('accounts.addAccount')
-            )}
-          </Button>
-        </form>
+              <SelectItem value="cash">{t('accounts.cash')}</SelectItem>
+              <SelectItem value="savings">{t('accounts.savings')}</SelectItem>
+              <SelectItem value="caja">{t('accounts.caja')}</SelectItem>
+            </SelectField>
+            <CurrencyField
+              name="initialBalance"
+              label={t('accounts.initialBalance')}
+            />
+            <div className="flex flex-col gap-1">
+              <Label>{t('accounts.description')}</Label>
+              <Textarea name="description" className="resize-none" />
+            </div>
+            <AccountAppearancePicker
+              accountName={accountName}
+              color={color}
+              onColorChange={setColor}
+              logoUrl={logoUrl}
+              onLogoChange={setLogoUrl}
+              icon={icon}
+              onIconChange={setIcon}
+            />
+            <input type="hidden" name="color" value={color ?? ''} />
+            <input type="hidden" name="logoUrl" value={logoUrl ?? ''} />
+            <input type="hidden" name="icon" value={icon ?? ''} />
+            <Button className="w-full" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  {t('accounts.creatingAccount')}
+                </>
+              ) : (
+                t('accounts.addAccount')
+              )}
+            </Button>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

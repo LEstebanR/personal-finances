@@ -5,13 +5,17 @@ import {
   updateSubscription,
 } from '@/app/dashboard/subscriptions/actions'
 import { useLanguage } from '@/components/language-provider'
+import { isPlanLimitError } from '@/lib/plan-limits-shared'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, PlusIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
+import { z } from 'zod'
 
 import { Button } from '../ui/button'
 import { CategoryCombobox } from '../ui/category-combobox'
-import { CurrencyInput } from '../ui/currency-input'
+import { CurrencyField } from '../ui/currency-field'
 import { DatePicker } from '../ui/date-picker'
 import {
   Dialog,
@@ -21,16 +25,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../ui/dialog'
-import { Input } from '../ui/input'
+import { Form } from '../ui/form'
 import { Label } from '../ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select'
+import { SelectItem } from '../ui/select'
+import { SelectField } from '../ui/select-field'
 import { SubcategoryCombobox } from '../ui/subcategory-combobox'
+import { TextField } from '../ui/text-field'
 import { useDashboardRefresh } from './refresh-provider'
 
 const MONTH_KEYS = [
@@ -78,15 +78,29 @@ export function AddSubscriptionDialog({
   const setIsOpen = setControlledOpen ?? setInternalOpen
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [categoryId, setCategoryId] = useState(subscription?.categoryId ?? '')
-  const [frequency, setFrequency] = useState(
-    subscription?.frequency === 'yearly' ? 'yearly' : 'monthly'
-  )
   const isEditing = !!subscription
+  const formRef = useRef<HTMLFormElement>(null)
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const schema = z.object({
+    name: z.string().trim().min(1, t('subscriptions.nameRequired')),
+    amount: z.string().min(1, t('subscriptions.amountRequired')),
+    frequency: z.string(),
+    dueDay: z.string().min(1, t('subscriptions.dueDayRequired')),
+  })
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      name: subscription?.name ?? '',
+      amount: subscription ? String(subscription.amount) : '',
+      frequency: subscription?.frequency === 'yearly' ? 'yearly' : 'monthly',
+      dueDay: subscription?.dueDay != null ? String(subscription.dueDay) : '',
+    },
+  })
+  const frequency = form.watch('frequency')
+
+  const onSubmit = form.handleSubmit(async () => {
     setIsSubmitting(true)
-    const formData = new FormData(e.currentTarget)
+    const formData = new FormData(formRef.current!)
 
     try {
       if (subscription) {
@@ -97,15 +111,18 @@ export function AddSubscriptionDialog({
         toast.success(t('subscriptions.subscriptionCreated'))
       }
       triggerRefresh()
-      e.currentTarget?.reset()
       setIsOpen(false)
     } catch (error) {
       console.error('Error saving subscription:', error)
-      toast.error(t('debts.saveFailed'))
+      toast.error(
+        isPlanLimitError(error)
+          ? t('subscriptions.subscriptionLimitReached')
+          : t('debts.saveFailed')
+      )
     }
 
     setIsSubmitting(false)
-  }
+  })
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen} modal={false}>
@@ -121,148 +138,95 @@ export function AddSubscriptionDialog({
         <DialogDescription>
           {t('subscriptions.dialogDescription')}
         </DialogDescription>
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1">
-            <Label>{t('debts.name')}</Label>
-            <Input
-              type="text"
-              name="name"
-              required
-              defaultValue={subscription?.name}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label>{t('transactions.category')}</Label>
-            <CategoryCombobox
-              name="categoryId"
-              type="expense"
-              defaultValue={subscription?.categoryId}
-              onChange={setCategoryId}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label>{t('transactions.subcategory')}</Label>
-            <SubcategoryCombobox
-              name="subcategoryId"
-              categoryId={categoryId}
-              defaultValue={subscription?.subcategoryId ?? undefined}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+        <Form {...form}>
+          <form
+            ref={formRef}
+            className="flex flex-col gap-4"
+            onSubmit={onSubmit}
+            noValidate
+          >
+            <TextField name="name" label={t('debts.name')} type="text" />
             <div className="flex flex-col gap-1">
-              <Label>{t('transactions.amount')}</Label>
-              <CurrencyInput
-                name="amount"
-                required
-                defaultValue={
-                  subscription ? String(subscription.amount) : undefined
-                }
+              <Label>{t('transactions.category')}</Label>
+              <CategoryCombobox
+                name="categoryId"
+                type="expense"
+                defaultValue={subscription?.categoryId}
+                onChange={setCategoryId}
               />
             </div>
             <div className="flex flex-col gap-1">
-              <Label>{t('subscriptions.frequency')}</Label>
-              <Select
-                name="frequency"
-                defaultValue={frequency}
-                onValueChange={setFrequency}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="monthly">
-                    {t('subscriptions.monthly')}
-                  </SelectItem>
-                  <SelectItem value="yearly">
-                    {t('subscriptions.yearly')}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>{t('transactions.subcategory')}</Label>
+              <SubcategoryCombobox
+                name="subcategoryId"
+                categoryId={categoryId}
+                defaultValue={subscription?.subcategoryId ?? undefined}
+              />
             </div>
-          </div>
-          {frequency === 'yearly' ? (
             <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <Label>{t('subscriptions.dueMonth')}</Label>
-                <Select
-                  name="dueMonth"
-                  defaultValue={
-                    subscription?.dueMonth != null
-                      ? String(subscription.dueMonth)
-                      : undefined
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MONTH_KEYS.map((key, index) => (
-                      <SelectItem key={key} value={String(index + 1)}>
-                        {t(`budgets.months.${key}`)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>{t('subscriptions.dueDay')}</Label>
-                <Input
-                  type="number"
-                  name="dueDay"
-                  min={1}
-                  max={31}
-                  required
-                  placeholder={t('debts.dayOfMonth')}
-                  defaultValue={subscription?.dueDay ?? undefined}
-                />
-              </div>
+              <CurrencyField name="amount" label={t('transactions.amount')} />
+              <SelectField
+                name="frequency"
+                label={t('subscriptions.frequency')}
+              >
+                <SelectItem value="monthly">
+                  {t('subscriptions.monthly')}
+                </SelectItem>
+                <SelectItem value="yearly">
+                  {t('subscriptions.yearly')}
+                </SelectItem>
+              </SelectField>
             </div>
-          ) : (
-            <div className="flex flex-col gap-1">
-              <Label>{t('subscriptions.dueDay')}</Label>
-              <Input
-                type="number"
-                name="dueDay"
-                min={1}
-                max={31}
-                required
-                placeholder={t('debts.dayOfMonth')}
-                defaultValue={subscription?.dueDay ?? undefined}
-              />
-            </div>
-          )}
-          {subscription ? (
-            <p className="text-muted-foreground text-xs">
-              {t('subscriptions.startedOn', {
-                date: subscription.startDate.toLocaleDateString(undefined, {
-                  timeZone: 'UTC',
-                }),
-              })}
-            </p>
-          ) : (
-            <div className="flex flex-col gap-1">
-              <Label>{t('subscriptions.startDate')}</Label>
-              <DatePicker name="startDate" />
-            </div>
-          )}
-          <Button className="w-full" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader className="mr-2 h-4 w-4 animate-spin" />
-                {isEditing
-                  ? t('transactions.savingChanges')
-                  : t('budgets.creatingItem')}
-              </>
-            ) : isEditing ? (
-              t('debts.saveChanges')
-            ) : (
-              <>
-                <PlusIcon className="h-4 w-4" />
-                {t('subscriptions.addSubscription')}
-              </>
+            {frequency === 'yearly' && (
+              <SelectField name="dueMonth" label={t('subscriptions.dueMonth')}>
+                {MONTH_KEYS.map((key, index) => (
+                  <SelectItem key={key} value={String(index + 1)}>
+                    {t(`budgets.months.${key}`)}
+                  </SelectItem>
+                ))}
+              </SelectField>
             )}
-          </Button>
-        </form>
+            <TextField
+              name="dueDay"
+              label={t('subscriptions.dueDay')}
+              type="number"
+              min={1}
+              max={31}
+              placeholder={t('debts.dayOfMonth')}
+            />
+            {subscription ? (
+              <p className="text-muted-foreground text-xs">
+                {t('subscriptions.startedOn', {
+                  date: subscription.startDate.toLocaleDateString(undefined, {
+                    timeZone: 'UTC',
+                  }),
+                })}
+              </p>
+            ) : (
+              <div className="flex flex-col gap-1">
+                <Label>{t('subscriptions.startDate')}</Label>
+                <DatePicker name="startDate" />
+              </div>
+            )}
+            <Button className="w-full" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  {isEditing
+                    ? t('transactions.savingChanges')
+                    : t('budgets.creatingItem')}
+                </>
+              ) : isEditing ? (
+                t('debts.saveChanges')
+              ) : (
+                <>
+                  <PlusIcon className="h-4 w-4" />
+                  {t('subscriptions.addSubscription')}
+                </>
+              )}
+            </Button>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

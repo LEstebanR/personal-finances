@@ -1,5 +1,6 @@
 'use server'
 
+import { getUserPlan } from '@/lib/plan-limits'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
 import { requiredString } from '@/lib/validation'
@@ -18,10 +19,11 @@ export async function getProfile() {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const [user, totalTransactions, totalAccounts] = await Promise.all([
+  const [user, totalTransactions, totalAccounts, plan] = await Promise.all([
     prisma.user.findUniqueOrThrow({ where: { id: session.user.id } }),
     prisma.transaction.count({ where: { userId: session.user.id } }),
     prisma.account.count({ where: { userId: session.user.id } }),
+    getUserPlan(session.user.id),
   ])
 
   return {
@@ -31,6 +33,9 @@ export async function getProfile() {
     currency: user.currency,
     timezone: user.timezone,
     budgetPeriod: user.budgetPeriod,
+    // Effective plan — admins always resolve to PRO here (see getUserPlan).
+    plan,
+    role: user.role,
     memberSince: user.createdAt,
     totalTransactions,
     totalAccounts,

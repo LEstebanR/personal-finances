@@ -20,6 +20,7 @@ model Account {
   logoUrl        String?
   icon           String?
   isArchived     Boolean       @default(false)
+  lockedByPlan   Boolean       @default(false)
   createdAt      DateTime      @default(now())
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions   Transaction[]
@@ -112,6 +113,7 @@ model RecurringExpense {
   frequency     String       @default("monthly")
   dueDay        Int?
   weekday       Int?
+  intervalWeeks Int?
   startDate     DateTime
   isActive      Boolean      @default(true)
   createdAt     DateTime     @default(now())
@@ -136,6 +138,7 @@ model Subscription {
   dueMonth      Int?
   startDate     DateTime
   isActive      Boolean      @default(true)
+  lockedByPlan  Boolean      @default(false)
   createdAt     DateTime     @default(now())
   user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   category      Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -177,6 +180,16 @@ model Transfer {
   @@index([userId])
 }
 
+enum Plan {
+  FREE
+  PRO
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
 model User {
   id                String             @id
   name              String
@@ -187,6 +200,8 @@ model User {
   timezone          String             @default("America/Bogota")
   budgetPeriod      String             @default("monthly")
   language          String             @default("en")
+  plan              Plan               @default(FREE)
+  role              Role               @default(USER)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   sessions          Session[]
@@ -197,9 +212,21 @@ model User {
   budgetItems       BudgetItem[]
   subscriptions     Subscription[]
   recurringExpenses RecurringExpense[]
+  feedback          Feedback[]
 
   @@unique([email])
   @@map("user")
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String?
+  message   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Debt {
@@ -212,6 +239,7 @@ model Debt {
   creditLimit      Decimal?             @db.Decimal(15, 2)
   minimumPayment   Decimal?             @db.Decimal(15, 2)
   paymentDueDay    Int?
+  lockedByPlan     Boolean              @default(false)
   createdAt        DateTime             @default(now())
   user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   payments         DebtPayment[]

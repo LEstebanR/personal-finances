@@ -85,6 +85,41 @@ interface Subscription {
   isActive: boolean
 }
 
+// Next occurrence of dueDay/dueMonth on or after today, used to sort cards
+// by urgency. Mirrors the clamp-to-month-length behavior the budget/actions
+// server logic uses, so a due day of 31 in a shorter month still resolves
+// to that month's last day instead of overflowing.
+function getNextRenewalDate(subscription: Subscription): Date {
+  const now = new Date()
+  const today = new Date(
+    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  )
+  const day = subscription.dueDay ?? 1
+
+  if (subscription.frequency === 'yearly') {
+    const month = (subscription.dueMonth ?? 1) - 1
+    for (const year of [today.getUTCFullYear(), today.getUTCFullYear() + 1]) {
+      const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+      const candidate = new Date(
+        Date.UTC(year, month, Math.min(day, daysInMonth))
+      )
+      if (candidate >= today) return candidate
+    }
+  }
+
+  for (const offset of [0, 1]) {
+    const year = today.getUTCFullYear()
+    const month = today.getUTCMonth() + offset
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+    const candidate = new Date(
+      Date.UTC(year, month, Math.min(day, daysInMonth))
+    )
+    if (candidate >= today) return candidate
+  }
+
+  return today
+}
+
 export function Subscriptions() {
   const currency = useCurrency()
   const { t } = useLanguage()
@@ -409,12 +444,18 @@ export function Subscriptions() {
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-            {subscriptions.map((subscription) => (
-              <SubscriptionCard
-                key={subscription.id}
-                subscription={subscription}
-              />
-            ))}
+            {[...subscriptions]
+              .sort(
+                (a, b) =>
+                  getNextRenewalDate(a).getTime() -
+                  getNextRenewalDate(b).getTime()
+              )
+              .map((subscription) => (
+                <SubscriptionCard
+                  key={subscription.id}
+                  subscription={subscription}
+                />
+              ))}
           </div>
         )}
       </div>

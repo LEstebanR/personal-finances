@@ -1,5 +1,10 @@
 import { getAccounts } from '@/app/dashboard/accounts/actions'
 import {
+  getAdminFeedback,
+  getAdminStats,
+  getAdminUsers,
+} from '@/app/dashboard/admin/actions'
+import {
   getBudgetDailyActuals,
   getBudgetItems,
   getBudgetOverview,
@@ -37,6 +42,10 @@ export const queryKeys = {
     ['budget-daily-actuals', month, year] as const,
   categoryMonthlyTotals: (year: number) =>
     ['category-monthly-totals', year] as const,
+  adminStats: ['admin-stats'] as const,
+  adminUsers: (page: number, search: string) =>
+    ['admin-users', page, search] as const,
+  adminFeedback: ['admin-feedback'] as const,
 }
 
 export function useAccounts() {
@@ -117,5 +126,24 @@ export function useCategoryMonthlyTotals(year: number) {
     queryKey: queryKeys.categoryMonthlyTotals(year),
     queryFn: () => getCategoryMonthlyTotals(year),
     placeholderData: keepPreviousData,
+  })
+}
+
+export function useAdminStats() {
+  return useQuery({ queryKey: queryKeys.adminStats, queryFn: getAdminStats })
+}
+
+export function useAdminUsers(page: number, search: string) {
+  return useQuery({
+    queryKey: queryKeys.adminUsers(page, search),
+    queryFn: () => getAdminUsers(page, search),
+    placeholderData: keepPreviousData,
+  })
+}
+
+export function useAdminFeedback() {
+  return useQuery({
+    queryKey: queryKeys.adminFeedback,
+    queryFn: getAdminFeedback,
   })
 }

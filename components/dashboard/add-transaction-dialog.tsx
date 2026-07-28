@@ -7,14 +7,18 @@ import {
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney, parseCurrencyInput } from '@/lib/currency'
+import { isPlanLimitError } from '@/lib/plan-limits-shared'
 import { useAccounts, useDebts } from '@/lib/queries'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
+import { z } from 'zod'
 
 import { Button } from '../ui/button'
 import { CategoryCombobox } from '../ui/category-combobox'
-import { CurrencyInput } from '../ui/currency-input'
+import { CurrencyField } from '../ui/currency-field'
 import { DatePicker } from '../ui/date-picker'
 import {
   Dialog,
@@ -24,16 +28,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../ui/dialog'
+import { Form } from '../ui/form'
 import { Label } from '../ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select'
+import { SelectGroup, SelectItem, SelectLabel } from '../ui/select'
+import { SelectField } from '../ui/select-field'
 import { SubcategoryCombobox } from '../ui/subcategory-combobox'
 import { Textarea } from '../ui/textarea'
 import { useDashboardRefresh } from './refresh-provider'
@@ -56,33 +54,72 @@ export function AddTransactionDialog({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { data: rawAccounts = [], isLoading: loadingAccounts } = useAccounts()
   const { data: rawDebts = [] } = useDebts()
-  const availableAccounts = rawAccounts.filter((account) => !account.isArchived)
-  const availableDebts = rawDebts.filter((debt) => debt.type === 'credit_card')
-  const [transactionType, setTransactionType] = useState('')
+  const availableAccounts = rawAccounts.filter(
+    (account) => !account.isArchived && !account.lockedByPlan
+  )
+  const availableDebts = rawDebts.filter(
+    (debt) => debt.type === 'credit_card' && !debt.lockedByPlan
+  )
   const [categoryId, setCategoryId] = useState('')
   const [sourceType, setSourceType] = useState<'account' | 'debt'>('account')
   const [sourceId, setSourceId] = useState('')
+  const formRef = useRef<HTMLFormElement>(null)
+
+  const schema = z
+    .object({
+      type: z.string().min(1, t('transactions.typeRequired')),
+      amount: z.string().min(1, t('transactions.amountRequired')),
+      fromAccountId: z.string().optional(),
+      toAccountId: z.string().optional(),
+    })
+    .superRefine((data, ctx) => {
+      if (data.type === 'transfer') {
+        if (!data.fromAccountId) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: t('transactions.fromAccountRequired'),
+            path: ['fromAccountId'],
+          })
+        }
+        if (!data.toAccountId) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: t('transactions.toAccountRequired'),
+            path: ['toAccountId'],
+          })
+        }
+      }
+    })
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      type: '',
+      amount: '',
+      fromAccountId: '',
+      toAccountId: '',
+    },
+  })
+  const transactionType = form.watch('type')
 
   useEffect(() => {
     if (!isOpen) {
       setCategoryId('')
-      setTransactionType('')
       setSourceType('account')
       setSourceId('')
+      form.reset({ type: '', amount: '', fromAccountId: '', toAccountId: '' })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    const formData = new FormData(e.currentTarget)
-    const type = formData.get('type') as string
+  const onSubmit = form.handleSubmit(async (data) => {
+    const formData = new FormData(formRef.current!)
 
-    if (type !== 'transfer' && !formData.get('categoryId')) {
+    if (data.type !== 'transfer' && !formData.get('categoryId')) {
       toast.error(t('transactions.categoryRequired'))
       return
     }
     if (
-      type !== 'transfer' &&
+      data.type !== 'transfer' &&
       !formData.get('accountId') &&
       !formData.get('debtId')
     ) {
@@ -93,7 +130,7 @@ export function AddTransactionDialog({
     setIsSubmitting(true)
 
     try {
-      if (type === 'transfer') {
+      if (data.type === 'transfer') {
         const fromAccountId = formData.get('fromAccountId') as string
         const toAccountId = formData.get('toAccountId') as string
         const amount = parseCurrencyInput(formData.get('amount'))
@@ -122,32 +159,31 @@ export function AddTransactionDialog({
             ? availableAccounts.find((a) => a.id === sourceId)
             : availableDebts.find((d) => d.id === sourceId)
         const typeLabel =
-          type === 'income'
+          data.type === 'income'
             ? t('transactions.income')
             : t('transactions.expense')
 
         toast.success(
           t('transactions.transactionCreated', { type: typeLabel }),
           {
-            description: `${type === 'income' ? '+' : '-'}$${formatMoney(amount, currency)} • ${source?.name || t('transactions.account')}`,
+            description: `${data.type === 'income' ? '+' : '-'}$${formatMoney(amount, currency)} • ${source?.name || t('transactions.account')}`,
           }
         )
       }
 
       triggerRefresh()
-      e.currentTarget?.reset()
-      setTransactionType('')
-      setCategoryId('')
-      setSourceType('account')
-      setSourceId('')
       setIsOpen(false)
     } catch (error) {
       console.error('Error creating transaction/transfer:', error)
-      toast.error(t('transactions.saveFailed'))
+      toast.error(
+        isPlanLimitError(error)
+          ? t('transactions.transactionLimitReached')
+          : t('transactions.saveFailed')
+      )
     }
 
     setIsSubmitting(false)
-  }
+  })
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen} modal={false}>
@@ -157,105 +193,82 @@ export function AddTransactionDialog({
           <DialogTitle>{t('transactions.addTransaction')}</DialogTitle>
         </DialogHeader>
         <DialogDescription>{t('accounts.description')}</DialogDescription>
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1">
-            <Label>{t('transactions.transactionType')}</Label>
-            <Select
+        <Form {...form}>
+          <form
+            ref={formRef}
+            className="flex flex-col gap-4"
+            onSubmit={onSubmit}
+            noValidate
+          >
+            <SelectField
               name="type"
-              required
-              onValueChange={(value) => {
-                setTransactionType(value)
+              label={t('transactions.transactionType')}
+              placeholder={t('transactions.selectTransactionType')}
+              onValueChange={() => {
                 setCategoryId('')
                 setSourceType('account')
                 setSourceId('')
               }}
             >
-              <SelectTrigger className="w-full">
-                <SelectValue
-                  placeholder={t('transactions.selectTransactionType')}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="income">
-                  {t('transactions.income')}
-                </SelectItem>
-                <SelectItem value="expense">
-                  {t('transactions.expense')}
-                </SelectItem>
-                <SelectItem value="transfer">
-                  {t('transactions.transfer')}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+              <SelectItem value="income">{t('transactions.income')}</SelectItem>
+              <SelectItem value="expense">
+                {t('transactions.expense')}
+              </SelectItem>
+              <SelectItem value="transfer">
+                {t('transactions.transfer')}
+              </SelectItem>
+            </SelectField>
 
-          {transactionType === 'transfer' ? (
-            <>
-              <div className="flex flex-col gap-1">
-                <Label>{t('transactions.fromAccount')}</Label>
-                <Select name="fromAccountId" required>
-                  <SelectTrigger className="w-full">
-                    <SelectValue
-                      placeholder={
-                        loadingAccounts
-                          ? t('transactions.loadingAccounts')
-                          : t('transactions.selectSourceAccount')
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableAccounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.name} ({account.type})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>{t('transactions.toAccount')}</Label>
-                <Select name="toAccountId" required>
-                  <SelectTrigger className="w-full">
-                    <SelectValue
-                      placeholder={
-                        loadingAccounts
-                          ? t('transactions.loadingAccounts')
-                          : t('transactions.selectDestinationAccount')
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableAccounts.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.name} ({account.type})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          ) : (
-            transactionType && (
-              <div className="flex flex-col gap-1">
-                <Label>{t('transactions.account')}</Label>
-                <Select
-                  value={sourceId ? `${sourceType}:${sourceId}` : undefined}
-                  onValueChange={(value) => {
-                    const [type, id] = value.split(':')
-                    setSourceType(type as 'account' | 'debt')
-                    setSourceId(id)
-                  }}
+            {transactionType === 'transfer' ? (
+              <>
+                <SelectField
+                  name="fromAccountId"
+                  label={t('transactions.fromAccount')}
+                  placeholder={
+                    loadingAccounts
+                      ? t('transactions.loadingAccounts')
+                      : t('transactions.selectSourceAccount')
+                  }
                 >
-                  <SelectTrigger className="w-full">
-                    <SelectValue
-                      placeholder={
-                        loadingAccounts
-                          ? t('transactions.loadingAccounts')
-                          : t('transactions.selectAnAccount')
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
+                  {availableAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name} ({account.type})
+                    </SelectItem>
+                  ))}
+                </SelectField>
+                <SelectField
+                  name="toAccountId"
+                  label={t('transactions.toAccount')}
+                  placeholder={
+                    loadingAccounts
+                      ? t('transactions.loadingAccounts')
+                      : t('transactions.selectDestinationAccount')
+                  }
+                >
+                  {availableAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name} ({account.type})
+                    </SelectItem>
+                  ))}
+                </SelectField>
+              </>
+            ) : (
+              transactionType && (
+                <div className="flex flex-col gap-1">
+                  <Label>{t('transactions.account')}</Label>
+                  <SelectField
+                    name="sourceKey"
+                    placeholder={
+                      loadingAccounts
+                        ? t('transactions.loadingAccounts')
+                        : t('transactions.selectAnAccount')
+                    }
+                    onValueChange={(value) => {
+                      const [type, id] = value.split(':')
+                      setSourceType(type as 'account' | 'debt')
+                      setSourceId(id)
+                    }}
+                  >
                     <SelectGroup>
                       <SelectLabel>{t('transactions.accounts')}</SelectLabel>
                       {availableAccounts.map((account) => (
@@ -280,63 +293,61 @@ export function AddTransactionDialog({
                           ))}
                         </SelectGroup>
                       )}
-                  </SelectContent>
-                </Select>
-                <input
-                  type="hidden"
-                  name="accountId"
-                  value={sourceType === 'account' ? sourceId : ''}
-                />
-                <input
-                  type="hidden"
-                  name="debtId"
-                  value={sourceType === 'debt' ? sourceId : ''}
-                />
-              </div>
-            )
-          )}
-          <div className="flex flex-col gap-1">
-            <Label>{t('transactions.amount')}</Label>
-            <CurrencyInput name="amount" required />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label>{t('transactions.date')}</Label>
-            <DatePicker name="date" />
-          </div>
-          {(transactionType === 'income' || transactionType === 'expense') && (
-            <>
-              <div className="flex flex-col gap-1">
-                <Label>{t('transactions.category')}</Label>
-                <CategoryCombobox
-                  name="categoryId"
-                  type={transactionType}
-                  onChange={setCategoryId}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>{t('transactions.subcategory')}</Label>
-                <SubcategoryCombobox
-                  name="subcategoryId"
-                  categoryId={categoryId}
-                />
-              </div>
-            </>
-          )}
-          <div className="flex flex-col gap-1">
-            <Label>{t('transactions.description')}</Label>
-            <Textarea name="description" className="resize-none" />
-          </div>
-          <Button className="w-full" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader className="mr-2 h-4 w-4 animate-spin" />
-                {t('transactions.creatingTransaction')}
-              </>
-            ) : (
-              t('transactions.addTransaction')
+                  </SelectField>
+                  <input
+                    type="hidden"
+                    name="accountId"
+                    value={sourceType === 'account' ? sourceId : ''}
+                  />
+                  <input
+                    type="hidden"
+                    name="debtId"
+                    value={sourceType === 'debt' ? sourceId : ''}
+                  />
+                </div>
+              )
             )}
-          </Button>
-        </form>
+            <CurrencyField name="amount" label={t('transactions.amount')} />
+            <div className="flex flex-col gap-1">
+              <Label>{t('transactions.date')}</Label>
+              <DatePicker name="date" />
+            </div>
+            {(transactionType === 'income' ||
+              transactionType === 'expense') && (
+              <>
+                <div className="flex flex-col gap-1">
+                  <Label>{t('transactions.category')}</Label>
+                  <CategoryCombobox
+                    name="categoryId"
+                    type={transactionType}
+                    onChange={setCategoryId}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label>{t('transactions.subcategory')}</Label>
+                  <SubcategoryCombobox
+                    name="subcategoryId"
+                    categoryId={categoryId}
+                  />
+                </div>
+              </>
+            )}
+            <div className="flex flex-col gap-1">
+              <Label>{t('transactions.description')}</Label>
+              <Textarea name="description" className="resize-none" />
+            </div>
+            <Button className="w-full" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  {t('transactions.creatingTransaction')}
+                </>
+              ) : (
+                t('transactions.addTransaction')
+              )}
+            </Button>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

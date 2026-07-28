@@ -1,5 +1,6 @@
 'use client'
 
+import { FeedbackDialog } from '@/components/dashboard/feedback-dialog'
 import { useLanguage } from '@/components/language-provider'
 import {
   Sidebar,
@@ -21,6 +22,7 @@ import {
   PiggyBank,
   Repeat,
   Settings,
+  Shield,
   TrendingUp,
   User,
   Wallet,
@@ -31,7 +33,7 @@ import { Suspense } from 'react'
 
 import { Logo } from './logo'
 
-function AppSidebarContent() {
+function AppSidebarContent({ isAdmin }: { isAdmin: boolean }) {
   const { isMobile, setOpenMobile } = useSidebar()
   const { t } = useLanguage()
   const searchParams = useSearchParams()
@@ -94,11 +96,33 @@ function AppSidebarContent() {
                   </SidebarMenuItem>
                 )
               })}
+              <SidebarMenuItem>
+                <FeedbackDialog />
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
+        {isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    className="cursor-pointer"
+                    isActive={currentView === 'admin'}
+                    asChild
+                  >
+                    <Link href="?admin" onClick={closeOnMobile}>
+                      <Shield /> {t('nav.admin')}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
         <SidebarGroup>
           <SidebarGroupLabel>{t('nav.userSettings')}</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -127,10 +151,10 @@ function AppSidebarContent() {
   )
 }
 
-export function AppSidebar() {
+export function AppSidebar({ isAdmin = false }: { isAdmin?: boolean }) {
   return (
     <Suspense fallback={<Sidebar className="" />}>
-      <AppSidebarContent />
+      <AppSidebarContent isAdmin={isAdmin} />
     </Suspense>
   )
 }

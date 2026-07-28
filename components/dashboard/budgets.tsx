@@ -8,10 +8,12 @@ import { cancelSubscription } from '@/app/dashboard/subscriptions/actions'
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
+import { FREE_LIMITS, monthsBack } from '@/lib/plan-limits-shared'
 import {
   useBudgetDailyActuals,
   useBudgetItems,
   useBudgetOverview,
+  useProfile,
 } from '@/lib/queries'
 import { cn } from '@/lib/utils'
 import { es } from 'date-fns/locale'
@@ -183,9 +185,13 @@ export function Budgets() {
   const { t, language } = useLanguage()
   const locale = language === 'es' ? 'es-ES' : 'en-US'
   const { triggerRefresh } = useDashboardRefresh()
+  const { data: profile } = useProfile()
+  const isFreePlan = profile?.plan !== 'PRO'
   const now = new Date()
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
+  const atOldestAllowedMonth =
+    isFreePlan && monthsBack(month, year) >= FREE_LIMITS.budgetMonthsBack
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [editingItem, setEditingItem] = useState<EditableBudgetItem | null>(
@@ -449,7 +455,15 @@ export function Budgets() {
     <div className="flex w-full flex-col gap-6 rounded-md p-4 md:mt-4 md:w-11/12 md:p-8">
       <div className="flex w-full items-center justify-end">
         <div className="flex items-center gap-2">
-          <Button size="icon" variant="outline" onClick={goToPreviousMonth}>
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={goToPreviousMonth}
+            disabled={atOldestAllowedMonth}
+            title={
+              atOldestAllowedMonth ? t('budgets.upgradeForHistory') : undefined
+            }
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="min-w-32 text-center font-medium">

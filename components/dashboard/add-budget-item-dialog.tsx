@@ -9,13 +9,16 @@ import {
 } from '@/app/dashboard/budgets/actions'
 import { useLanguage } from '@/components/language-provider'
 import { toLocalMidnight } from '@/lib/utils'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, PlusIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
+import { z } from 'zod'
 
 import { Button } from '../ui/button'
 import { CategoryCombobox } from '../ui/category-combobox'
-import { CurrencyInput } from '../ui/currency-input'
+import { CurrencyField } from '../ui/currency-field'
 import { DatePicker } from '../ui/date-picker'
 import {
   Dialog,
@@ -25,17 +28,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../ui/dialog'
-import { Input } from '../ui/input'
+import { Form } from '../ui/form'
 import { Label } from '../ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select'
+import { SelectItem } from '../ui/select'
+import { SelectField } from '../ui/select-field'
 import { SubcategoryCombobox } from '../ui/subcategory-combobox'
 import { Switch } from '../ui/switch'
+import { TextField } from '../ui/text-field'
 
 export interface EditableBudgetItem {
   id: string
@@ -78,11 +77,45 @@ export function AddBudgetItemDialog({
     !item.subscriptionId &&
     !item.recurringExpenseId &&
     !item.debtId
+  const formRef = useRef<HTMLFormElement>(null)
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const schema = z
+    .object({
+      amount: z.string().min(1, t('budgets.amountRequired')),
+      description: z.string().optional(),
+      frequency: z.string().optional(),
+      intervalWeeks: z.string().optional(),
+    })
+    .superRefine((data, ctx) => {
+      if (isRecurring && !data.description?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: t('budgets.nameRequired'),
+          path: ['description'],
+        })
+      }
+      if (isRecurring && data.frequency === 'custom' && !data.intervalWeeks) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: t('budgets.intervalWeeksRequired'),
+          path: ['intervalWeeks'],
+        })
+      }
+    })
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      amount: item ? String(item.amount) : '',
+      description: item?.description ?? '',
+      frequency: 'monthly',
+      intervalWeeks: '4',
+    },
+  })
+  const frequency = form.watch('frequency')
+
+  const onSubmit = form.handleSubmit(async () => {
     setIsSubmitting(true)
-    const formData = new FormData(e.currentTarget)
+    const formData = new FormData(formRef.current!)
 
     try {
       if (item) {
@@ -101,16 +134,21 @@ export function AddBudgetItemDialog({
         toast.success(t('budgets.itemCreated'))
       }
       onSaved()
-      e.currentTarget?.reset()
       setIsOpen(false)
       setIsRecurring(false)
+      form.reset({
+        amount: '',
+        description: '',
+        frequency: 'monthly',
+        intervalWeeks: '4',
+      })
     } catch (error) {
       console.error('Error saving budget item:', error)
       toast.error(t('budgets.itemSaveFailed'))
     }
 
     setIsSubmitting(false)
-  }
+  })
 
   const handleCancelRecurring = async () => {
     if (!item?.recurringExpenseId) return
@@ -137,134 +175,137 @@ export function AddBudgetItemDialog({
           </DialogTitle>
         </DialogHeader>
         <DialogDescription>{t('budgets.addItemDesc')}</DialogDescription>
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1">
-            <Label>{t('transactions.date')}</Label>
-            <DatePicker
-              name="date"
-              defaultValue={item ? toLocalMidnight(item.date) : defaultDate}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label>{t('transactions.category')}</Label>
-            <CategoryCombobox
-              name="categoryId"
-              type="expense"
-              defaultValue={item?.categoryId}
-              onChange={setCategoryId}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label>{t('transactions.subcategory')}</Label>
-            <SubcategoryCombobox
-              name="subcategoryId"
-              categoryId={categoryId}
-              defaultValue={item?.subcategoryId ?? undefined}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label>{t('debts.paymentAmount')}</Label>
-            <CurrencyInput
-              name="amount"
-              required
-              defaultValue={item ? String(item.amount) : undefined}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label>
-              {isRecurring ? t('debts.name') : t('budgets.descriptionOptional')}
-            </Label>
-            <Input
-              type="text"
+        <Form {...form}>
+          <form
+            ref={formRef}
+            className="flex flex-col gap-4"
+            onSubmit={onSubmit}
+            noValidate
+          >
+            <div className="flex flex-col gap-1">
+              <Label>{t('transactions.date')}</Label>
+              <DatePicker
+                name="date"
+                defaultValue={item ? toLocalMidnight(item.date) : defaultDate}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label>{t('transactions.category')}</Label>
+              <CategoryCombobox
+                name="categoryId"
+                type="expense"
+                defaultValue={item?.categoryId}
+                onChange={setCategoryId}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label>{t('transactions.subcategory')}</Label>
+              <SubcategoryCombobox
+                name="subcategoryId"
+                categoryId={categoryId}
+                defaultValue={item?.subcategoryId ?? undefined}
+              />
+            </div>
+            <CurrencyField name="amount" label={t('debts.paymentAmount')} />
+            <TextField
               name="description"
-              required={isRecurring}
-              defaultValue={item?.description}
+              label={
+                isRecurring ? t('debts.name') : t('budgets.descriptionOptional')
+              }
+              type="text"
             />
-          </div>
-          {(!isEditing || canConvertToRecurring) && (
-            <div className="flex flex-col gap-3 rounded-md border p-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="isRecurring" className="font-normal">
-                  {isEditing
-                    ? t('budgets.convertToRecurring')
-                    : t('budgets.isRecurring')}
-                </Label>
-                <Switch
-                  id="isRecurring"
-                  checked={isRecurring}
-                  onCheckedChange={setIsRecurring}
-                />
+            {(!isEditing || canConvertToRecurring) && (
+              <div className="flex flex-col gap-3 rounded-md border p-3">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="isRecurring" className="font-normal">
+                    {isEditing
+                      ? t('budgets.convertToRecurring')
+                      : t('budgets.isRecurring')}
+                  </Label>
+                  <Switch
+                    id="isRecurring"
+                    checked={isRecurring}
+                    onCheckedChange={setIsRecurring}
+                  />
+                </div>
+                {isRecurring && (
+                  <>
+                    <SelectField
+                      name="frequency"
+                      label={t('subscriptions.frequency')}
+                    >
+                      <SelectItem value="monthly">
+                        {t('subscriptions.monthly')}
+                      </SelectItem>
+                      <SelectItem value="weekly">
+                        {t('subscriptions.weekly')}
+                      </SelectItem>
+                      <SelectItem value="custom">
+                        {t('budgets.everyNWeeks')}
+                      </SelectItem>
+                    </SelectField>
+                    {frequency === 'custom' && (
+                      <TextField
+                        name="intervalWeeks"
+                        label={t('budgets.intervalWeeksLabel')}
+                        type="number"
+                        min={2}
+                        max={52}
+                      />
+                    )}
+                    <p className="text-muted-foreground text-xs">
+                      {t('budgets.recurringNote')}
+                    </p>
+                  </>
+                )}
               </div>
-              {isRecurring && (
+            )}
+            {isEditing && item.recurringExpenseId && (
+              <div className="flex flex-col gap-2 rounded-md border p-3">
+                <p className="text-muted-foreground text-xs">
+                  {t('budgets.thisItemIsRecurring')}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isCancelling}
+                  onClick={handleCancelRecurring}
+                >
+                  {isCancelling ? (
+                    <Loader className="h-4 w-4 animate-spin" />
+                  ) : (
+                    t('budgets.cancelRecurring')
+                  )}
+                </Button>
+              </div>
+            )}
+            {isEditing && item.debtId && (
+              <div className="rounded-md border p-3">
+                <p className="text-muted-foreground text-xs">
+                  {t('budgets.thisItemIsFromDebt', { name: item.description })}
+                </p>
+              </div>
+            )}
+            <Button className="w-full" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
                 <>
-                  <div className="flex flex-col gap-1">
-                    <Label>{t('subscriptions.frequency')}</Label>
-                    <Select name="frequency" defaultValue="monthly">
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="monthly">
-                          {t('subscriptions.monthly')}
-                        </SelectItem>
-                        <SelectItem value="weekly">
-                          {t('subscriptions.weekly')}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <p className="text-muted-foreground text-xs">
-                    {t('budgets.recurringNote')}
-                  </p>
+                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  {isEditing
+                    ? t('budgets.savingChanges')
+                    : t('budgets.creatingItem')}
+                </>
+              ) : isEditing ? (
+                t('budgets.saveChanges')
+              ) : (
+                <>
+                  <PlusIcon className="h-4 w-4" />
+                  {t('budgets.addItem')}
                 </>
               )}
-            </div>
-          )}
-          {isEditing && item.recurringExpenseId && (
-            <div className="flex flex-col gap-2 rounded-md border p-3">
-              <p className="text-muted-foreground text-xs">
-                {t('budgets.thisItemIsRecurring')}
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isCancelling}
-                onClick={handleCancelRecurring}
-              >
-                {isCancelling ? (
-                  <Loader className="h-4 w-4 animate-spin" />
-                ) : (
-                  t('budgets.cancelRecurring')
-                )}
-              </Button>
-            </div>
-          )}
-          {isEditing && item.debtId && (
-            <div className="rounded-md border p-3">
-              <p className="text-muted-foreground text-xs">
-                {t('budgets.thisItemIsFromDebt', { name: item.description })}
-              </p>
-            </div>
-          )}
-          <Button className="w-full" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader className="mr-2 h-4 w-4 animate-spin" />
-                {isEditing
-                  ? t('budgets.savingChanges')
-                  : t('budgets.creatingItem')}
-              </>
-            ) : isEditing ? (
-              t('budgets.saveChanges')
-            ) : (
-              <>
-                <PlusIcon className="h-4 w-4" />
-                {t('budgets.addItem')}
-              </>
-            )}
-          </Button>
-        </form>
+            </Button>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

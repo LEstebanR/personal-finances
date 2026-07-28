@@ -2,11 +2,16 @@
 
 import { createDebt } from '@/app/dashboard/debts/actions'
 import { useLanguage } from '@/components/language-provider'
+import { isPlanLimitError } from '@/lib/plan-limits-shared'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, PlusIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
+import { z } from 'zod'
 
 import { Button } from '../ui/button'
+import { CurrencyField } from '../ui/currency-field'
 import { CurrencyInput } from '../ui/currency-input'
 import {
   Dialog,
@@ -16,6 +21,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../ui/dialog'
+import { Form } from '../ui/form'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import {
@@ -25,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select'
+import { TextField } from '../ui/text-field'
 import { useDashboardRefresh } from './refresh-provider'
 
 export function AddDebtDialog({
@@ -43,26 +50,39 @@ export function AddDebtDialog({
   const setIsOpen = setControlledOpen ?? setInternalOpen
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [debtType, setDebtType] = useState('loan')
+  const formRef = useRef<HTMLFormElement>(null)
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const schema = z.object({
+    name: z.string().trim().min(1, t('debts.nameRequired')),
+    originalAmount: z.string().min(1, t('debts.originalAmountRequired')),
+  })
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: { name: '', originalAmount: '' },
+  })
+
+  const onSubmit = form.handleSubmit(async () => {
     setIsSubmitting(true)
-    const formData = new FormData(e.currentTarget)
+    const formData = new FormData(formRef.current!)
 
     try {
       await createDebt(formData)
       toast.success(t('debts.debtCreated'))
       triggerRefresh()
-      e.currentTarget?.reset()
+      form.reset({ name: '', originalAmount: '' })
       setDebtType('loan')
       setIsOpen(false)
     } catch (error) {
       console.error('Error creating debt:', error)
-      toast.error(t('debts.saveFailed'))
+      toast.error(
+        isPlanLimitError(error)
+          ? t('debts.debtLimitReached')
+          : t('debts.saveFailed')
+      )
     }
 
     setIsSubmitting(false)
-  }
+  })
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -72,65 +92,73 @@ export function AddDebtDialog({
           <DialogTitle>{t('debts.addDebt')}</DialogTitle>
         </DialogHeader>
         <DialogDescription>{t('debts.dialogDescription')}</DialogDescription>
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-1">
-            <Label>{t('debts.name')}</Label>
-            <Input type="text" name="name" required />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label>{t('debts.type')}</Label>
-            <Select name="type" defaultValue="loan" onValueChange={setDebtType}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="loan">{t('debts.loan')}</SelectItem>
-                <SelectItem value="credit_card">
-                  {t('debts.creditCard')}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label>{t('debts.originalAmount')}</Label>
-            <CurrencyInput name="originalAmount" required />
-          </div>
-          {debtType === 'credit_card' && (
+        <Form {...form}>
+          <form
+            ref={formRef}
+            className="flex flex-col gap-4"
+            onSubmit={onSubmit}
+            noValidate
+          >
+            <TextField name="name" label={t('debts.name')} type="text" />
             <div className="flex flex-col gap-1">
-              <Label>{t('debts.creditLimit')}</Label>
-              <CurrencyInput name="creditLimit" />
+              <Label>{t('debts.type')}</Label>
+              <Select
+                name="type"
+                defaultValue="loan"
+                onValueChange={setDebtType}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="loan">{t('debts.loan')}</SelectItem>
+                  <SelectItem value="credit_card">
+                    {t('debts.creditCard')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-          )}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1">
-              <Label>{t('debts.minimumPayment')}</Label>
-              <CurrencyInput name="minimumPayment" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t('debts.paymentDueDay')}</Label>
-              <Input
-                type="number"
-                name="paymentDueDay"
-                min={1}
-                max={31}
-                placeholder={t('debts.dayOfMonth')}
-              />
-            </div>
-          </div>
-          <Button className="w-full" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader className="mr-2 h-4 w-4 animate-spin" />
-                {t('debts.creatingDebt')}
-              </>
-            ) : (
-              <>
-                <PlusIcon className="h-4 w-4" />
-                {t('debts.addDebt')}
-              </>
+            <CurrencyField
+              name="originalAmount"
+              label={t('debts.originalAmount')}
+            />
+            {debtType === 'credit_card' && (
+              <div className="flex flex-col gap-1">
+                <Label>{t('debts.creditLimit')}</Label>
+                <CurrencyInput name="creditLimit" />
+              </div>
             )}
-          </Button>
-        </form>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1">
+                <Label>{t('debts.minimumPayment')}</Label>
+                <CurrencyInput name="minimumPayment" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label>{t('debts.paymentDueDay')}</Label>
+                <Input
+                  type="number"
+                  name="paymentDueDay"
+                  min={1}
+                  max={31}
+                  placeholder={t('debts.dayOfMonth')}
+                />
+              </div>
+            </div>
+            <Button className="w-full" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  {t('debts.creatingDebt')}
+                </>
+              ) : (
+                <>
+                  <PlusIcon className="h-4 w-4" />
+                  {t('debts.addDebt')}
+                </>
+              )}
+            </Button>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   )

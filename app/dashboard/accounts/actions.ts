@@ -1,6 +1,11 @@
 'use server'
 
 import { parseCurrencyInput } from '@/lib/currency'
+import {
+  FREE_LIMITS,
+  getUserPlan,
+  reconcileAccountLocks,
+} from '@/lib/plan-limits'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
 import { finiteAmount, optionalString, requiredString } from '@/lib/validation'
@@ -32,6 +37,9 @@ export async function getAccounts() {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
+  const plan = await getUserPlan(session.user.id)
+  await reconcileAccountLocks(session.user.id, plan)
+
   const accounts = await prisma.account.findMany({
     where: { userId: session.user.id },
     orderBy: { createdAt: 'desc' },
@@ -47,6 +55,18 @@ export async function getAccounts() {
 export async function createAccount(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
+
+  const plan = await getUserPlan(session.user.id)
+  if (plan !== 'PRO') {
+    const activeCount = await prisma.account.count({
+      where: { userId: session.user.id, isArchived: false },
+    })
+    if (activeCount >= FREE_LIMITS.accounts) {
+      throw new Error(
+        `Free plan is limited to ${FREE_LIMITS.accounts} accounts. Upgrade to Pro for unlimited accounts.`
+      )
+    }
+  }
 
   const {
     accountName,

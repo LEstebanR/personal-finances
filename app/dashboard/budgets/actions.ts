@@ -1,6 +1,7 @@
 'use server'
 
 import { parseCurrencyInput } from '@/lib/currency'
+import { FREE_LIMITS, getUserPlan, monthsBack } from '@/lib/plan-limits'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
 import {
@@ -19,14 +20,45 @@ const budgetItemSchema = z.object({
   date: validDate,
 })
 
-const recurringExpenseSchema = z.object({
-  categoryId: uuidField,
-  subcategoryId: uuidField.nullable(),
-  amount: positiveAmount,
-  name: requiredString,
-  frequency: z.enum(['weekly', 'monthly']),
-  date: validDate,
-})
+// Free plan only sees the current month and this many months back — Pro has
+// full history. Only the past is restricted; planning ahead stays open.
+async function assertBudgetMonthAllowed(
+  userId: string,
+  month: number,
+  year: number
+) {
+  const plan = await getUserPlan(userId)
+  if (plan === 'PRO') return
+  if (monthsBack(month, year) > FREE_LIMITS.budgetMonthsBack) {
+    throw new Error(
+      `Free plan is limited to the last ${FREE_LIMITS.budgetMonthsBack + 1} months of budget history. Upgrade to Pro for full history.`
+    )
+  }
+}
+
+const recurringExpenseSchema = z
+  .object({
+    categoryId: uuidField,
+    subcategoryId: uuidField.nullable(),
+    amount: positiveAmount,
+    name: requiredString,
+    frequency: z.enum(['weekly', 'monthly', 'custom']),
+    intervalWeeks: z.coerce.number().int().min(2).max(52).optional(),
+    date: validDate,
+  })
+  .refine(
+    (data) => data.frequency !== 'custom' || data.intervalWeeks !== undefined,
+    {
+      message: 'intervalWeeks is required for custom frequency',
+      path: ['intervalWeeks'],
+    }
+  )
+
+function parseRecurringFrequency(
+  value: FormDataEntryValue | null
+): 'weekly' | 'monthly' | 'custom' {
+  return value === 'weekly' || value === 'custom' ? value : 'monthly'
+}
 
 // Budget item dates are stored as UTC midnight (date-only values). Building
 // these bounds with the local Date constructor uses the server process's
@@ -47,26 +79,38 @@ interface RecurringSchedule {
   dueDay: number | null
   dueMonth?: number | null
   weekday?: number | null
+  intervalWeeks?: number | null
   startDate: Date
 }
 
-// Supports the three recurrence shapes used across Subscriptions (monthly,
-// yearly) and Budget recurring expenses (weekly, monthly): weekly recurs on
-// a matching weekday every month, yearly recurs once a year on dueMonth, and
-// monthly recurs once a month on dueDay (clamped to the month's length).
-// Occurrences before the schedule's startDate are skipped so something
-// started mid-period doesn't backfill earlier weeks/months/years.
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+
+// Supports the recurrence shapes used across Subscriptions (monthly, yearly)
+// and Budget recurring expenses (weekly, monthly, custom): weekly recurs on a
+// matching weekday every calendar week, custom recurs on a matching weekday
+// every N weeks counted from startDate, yearly recurs once a year on
+// dueMonth, and monthly recurs once a month on dueDay (clamped to the
+// month's length). Occurrences before the schedule's startDate are skipped
+// so something started mid-period doesn't backfill earlier weeks/months/years.
 function occurrenceDatesInMonth(
   schedule: RecurringSchedule,
   year: number,
   month: number,
   daysInMonth: number
 ): Date[] {
-  if (schedule.frequency === 'weekly') {
+  if (schedule.frequency === 'weekly' || schedule.frequency === 'custom') {
+    const intervalWeeks =
+      schedule.frequency === 'custom' ? (schedule.intervalWeeks ?? 1) : 1
     const dates: Date[] = []
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(Date.UTC(year, month - 1, day))
-      if (date.getUTCDay() === schedule.weekday && date >= schedule.startDate) {
+      if (date.getUTCDay() !== schedule.weekday || date < schedule.startDate) {
+        continue
+      }
+      const weeksSinceStart = Math.round(
+        (date.getTime() - schedule.startDate.getTime()) / WEEK_MS
+      )
+      if (weeksSinceStart % intervalWeeks === 0) {
         dates.push(date)
       }
     }
@@ -257,6 +301,7 @@ async function ensureDebtBudgetItems(
 export async function getBudgetOverview(month: number, year: number) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
+  await assertBudgetMonthAllowed(session.user.id, month, year)
 
   await Promise.all([
     ensureSubscriptionBudgetItems(session.user.id, month, year),
@@ -311,6 +356,7 @@ export async function getBudgetOverview(month: number, year: number) {
 export async function getBudgetDailyActuals(month: number, year: number) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
+  await assertBudgetMonthAllowed(session.user.id, month, year)
 
   const expenses = await prisma.transaction.findMany({
     where: {
@@ -330,6 +376,7 @@ export async function getBudgetDailyActuals(month: number, year: number) {
 export async function getBudgetItems(month: number, year: number) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
+  await assertBudgetMonthAllowed(session.user.id, month, year)
 
   await Promise.all([
     ensureSubscriptionBudgetItems(session.user.id, month, year),
@@ -428,22 +475,31 @@ export async function createRecurringExpense(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const { categoryId, subcategoryId, amount, name, frequency, date } =
-    recurringExpenseSchema.parse({
-      categoryId: formData.get('categoryId'),
-      subcategoryId: (formData.get('subcategoryId') as string) || null,
-      amount: parseCurrencyInput(formData.get('amount')),
-      name: formData.get('description'),
-      frequency: formData.get('frequency') === 'weekly' ? 'weekly' : 'monthly',
-      date: new Date(formData.get('date') as string),
-    })
+  const {
+    categoryId,
+    subcategoryId,
+    amount,
+    name,
+    frequency,
+    intervalWeeks,
+    date,
+  } = recurringExpenseSchema.parse({
+    categoryId: formData.get('categoryId'),
+    subcategoryId: (formData.get('subcategoryId') as string) || null,
+    amount: parseCurrencyInput(formData.get('amount')),
+    name: formData.get('description'),
+    frequency: parseRecurringFrequency(formData.get('frequency')),
+    intervalWeeks: formData.get('intervalWeeks') || undefined,
+    date: new Date(formData.get('date') as string),
+  })
 
   await prisma.category.findFirstOrThrow({
     where: { id: categoryId, userId: session.user.id },
   })
 
   const dueDay = frequency === 'monthly' ? date.getUTCDate() : null
-  const weekday = frequency === 'weekly' ? date.getUTCDay() : null
+  const weekday =
+    frequency === 'weekly' || frequency === 'custom' ? date.getUTCDay() : null
 
   const item = await prisma.$transaction(async (tx) => {
     const recurringExpense = await tx.recurringExpense.create({
@@ -456,6 +512,7 @@ export async function createRecurringExpense(formData: FormData) {
         frequency,
         dueDay,
         weekday,
+        intervalWeeks: frequency === 'custom' ? intervalWeeks : null,
         startDate: date,
       },
     })
@@ -488,15 +545,23 @@ export async function convertBudgetItemToRecurring(
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  const { categoryId, subcategoryId, amount, name, frequency, date } =
-    recurringExpenseSchema.parse({
-      categoryId: formData.get('categoryId'),
-      subcategoryId: (formData.get('subcategoryId') as string) || null,
-      amount: parseCurrencyInput(formData.get('amount')),
-      name: formData.get('description'),
-      frequency: formData.get('frequency') === 'weekly' ? 'weekly' : 'monthly',
-      date: new Date(formData.get('date') as string),
-    })
+  const {
+    categoryId,
+    subcategoryId,
+    amount,
+    name,
+    frequency,
+    intervalWeeks,
+    date,
+  } = recurringExpenseSchema.parse({
+    categoryId: formData.get('categoryId'),
+    subcategoryId: (formData.get('subcategoryId') as string) || null,
+    amount: parseCurrencyInput(formData.get('amount')),
+    name: formData.get('description'),
+    frequency: parseRecurringFrequency(formData.get('frequency')),
+    intervalWeeks: formData.get('intervalWeeks') || undefined,
+    date: new Date(formData.get('date') as string),
+  })
 
   const existing = await prisma.budgetItem.findFirstOrThrow({
     where: { id, userId: session.user.id },
@@ -513,7 +578,8 @@ export async function convertBudgetItemToRecurring(
   })
 
   const dueDay = frequency === 'monthly' ? date.getUTCDate() : null
-  const weekday = frequency === 'weekly' ? date.getUTCDay() : null
+  const weekday =
+    frequency === 'weekly' || frequency === 'custom' ? date.getUTCDay() : null
 
   const item = await prisma.$transaction(async (tx) => {
     const recurringExpense = await tx.recurringExpense.create({
@@ -526,6 +592,7 @@ export async function convertBudgetItemToRecurring(
         frequency,
         dueDay,
         weekday,
+        intervalWeeks: frequency === 'custom' ? intervalWeeks : null,
         startDate: date,
       },
     })

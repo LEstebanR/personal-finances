@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Form } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -22,8 +23,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { TextField } from '@/components/ui/text-field'
 import { TimezoneCombobox } from '@/components/ui/timezone-combobox'
 import { queryKeys, useProfile } from '@/lib/queries'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   Calendar,
@@ -33,19 +36,34 @@ import {
   TrendingUp,
   Wallet,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
+import { z } from 'zod'
 
 export function Profile() {
   const { t, language } = useLanguage()
   const queryClient = useQueryClient()
   const { data: profile, isLoading: loading } = useProfile()
   const [isSaving, setIsSaving] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const schema = z.object({
+    name: z.string().trim().min(1, t('profile.nameRequired')),
+  })
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: { name: profile?.name ?? '' },
+  })
+
+  useEffect(() => {
+    if (profile) form.reset({ name: profile.name })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.name])
+
+  const onSubmit = form.handleSubmit(async () => {
     setIsSaving(true)
-    const formData = new FormData(e.currentTarget)
+    const formData = new FormData(formRef.current!)
 
     try {
       const updated = await updateProfile(formData)
@@ -60,7 +78,7 @@ export function Profile() {
     }
 
     setIsSaving(false)
-  }
+  })
 
   if (loading || !profile) {
     return (
@@ -75,171 +93,172 @@ export function Profile() {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex w-full flex-col gap-4 rounded-md p-4 md:mt-4 md:w-11/12 md:p-8"
-    >
-      <div className="flex items-center justify-end">
-        <Button type="submit" disabled={isSaving}>
-          {isSaving ? (
-            <>
-              <Loader className="mr-2 h-4 w-4 animate-spin" />
-              {t('profile.saving')}
-            </>
-          ) : (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-              {t('profile.saveChanges')}
-            </>
-          )}
-        </Button>
-      </div>
+    <Form {...form}>
+      <form
+        ref={formRef}
+        onSubmit={onSubmit}
+        noValidate
+        className="flex w-full flex-col gap-4 rounded-md p-4 md:mt-4 md:w-11/12 md:p-8"
+      >
+        <div className="flex items-center justify-end">
+          <Button type="submit" disabled={isSaving}>
+            {isSaving ? (
+              <>
+                <Loader className="mr-2 h-4 w-4 animate-spin" />
+                {t('profile.saving')}
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                {t('profile.saveChanges')}
+              </>
+            )}
+          </Button>
+        </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="md:col-span-1">
-          <CardHeader>
-            <CardTitle>{t('profile.account')}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center space-y-4">
-            <Avatar className="h-24 w-24">
-              <AvatarImage src={profile.image ?? ''} alt={profile.name} />
-              <AvatarFallback>
-                {profile.name.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="space-y-1 text-center">
-              <p className="font-medium">{profile.name}</p>
-              <p className="text-muted-foreground text-sm">{profile.email}</p>
-              <Badge variant="secondary">
-                {t('profile.signedInWithGoogle')}
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="md:col-span-1">
+            <CardHeader>
+              <CardTitle>{t('profile.account')}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center space-y-4">
+              <Avatar className="h-24 w-24">
+                <AvatarImage src={profile.image ?? ''} alt={profile.name} />
+                <AvatarFallback>
+                  {profile.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="space-y-1 text-center">
+                <p className="font-medium">{profile.name}</p>
+                <p className="text-muted-foreground text-sm">{profile.email}</p>
+                <Badge variant="secondary">
+                  {t('profile.signedInWithGoogle')}
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="md:col-span-2">
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>{t('profile.personalInformation')}</CardTitle>
+              <CardDescription>{t('profile.updateYourName')}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <TextField name="name" label={t('profile.name')} type="text" />
+              <div className="space-y-2">
+                <Label htmlFor="email">{t('profile.email')}</Label>
+                <Input id="email" value={profile.email} disabled />
+                <p className="text-muted-foreground text-xs">
+                  {t('profile.managedByGoogle')}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card>
           <CardHeader>
-            <CardTitle>{t('profile.personalInformation')}</CardTitle>
-            <CardDescription>{t('profile.updateYourName')}</CardDescription>
+            <CardTitle>{t('profile.financialPreferences')}</CardTitle>
+            <CardDescription>
+              {t('profile.configureFinancialSettings')}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
-              <Label htmlFor="name">{t('profile.name')}</Label>
-              <Input
-                id="name"
-                name="name"
-                defaultValue={profile.name}
-                required
+              <Label htmlFor="currency">{t('profile.defaultCurrency')}</Label>
+              <Select name="currency" defaultValue={profile.currency}>
+                <SelectTrigger id="currency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="usd">USD - US Dollar</SelectItem>
+                  <SelectItem value="eur">EUR - Euro</SelectItem>
+                  <SelectItem value="gbp">GBP - British Pound</SelectItem>
+                  <SelectItem value="cad">CAD - Canadian Dollar</SelectItem>
+                  <SelectItem value="cop">COP - Colombian Peso</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="timezone">{t('profile.timezone')}</Label>
+              <TimezoneCombobox
+                name="timezone"
+                defaultValue={profile.timezone}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">{t('profile.email')}</Label>
-              <Input id="email" value={profile.email} disabled />
-              <p className="text-muted-foreground text-xs">
-                {t('profile.managedByGoogle')}
-              </p>
+              <Label htmlFor="budgetPeriod">{t('profile.budgetPeriod')}</Label>
+              <Select name="budgetPeriod" defaultValue={profile.budgetPeriod}>
+                <SelectTrigger id="budgetPeriod">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="weekly">{t('profile.weekly')}</SelectItem>
+                  <SelectItem value="monthly">
+                    {t('profile.monthly')}
+                  </SelectItem>
+                  <SelectItem value="quarterly">
+                    {t('profile.quarterly')}
+                  </SelectItem>
+                  <SelectItem value="yearly">{t('profile.yearly')}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('profile.financialPreferences')}</CardTitle>
-          <CardDescription>
-            {t('profile.configureFinancialSettings')}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor="currency">{t('profile.defaultCurrency')}</Label>
-            <Select name="currency" defaultValue={profile.currency}>
-              <SelectTrigger id="currency">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="usd">USD - US Dollar</SelectItem>
-                <SelectItem value="eur">EUR - Euro</SelectItem>
-                <SelectItem value="gbp">GBP - British Pound</SelectItem>
-                <SelectItem value="cad">CAD - Canadian Dollar</SelectItem>
-                <SelectItem value="cop">COP - Colombian Peso</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="timezone">{t('profile.timezone')}</Label>
-            <TimezoneCombobox name="timezone" defaultValue={profile.timezone} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="budgetPeriod">{t('profile.budgetPeriod')}</Label>
-            <Select name="budgetPeriod" defaultValue={profile.budgetPeriod}>
-              <SelectTrigger id="budgetPeriod">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="weekly">{t('profile.weekly')}</SelectItem>
-                <SelectItem value="monthly">{t('profile.monthly')}</SelectItem>
-                <SelectItem value="quarterly">
-                  {t('profile.quarterly')}
-                </SelectItem>
-                <SelectItem value="yearly">{t('profile.yearly')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('profile.accountStatistics')}</CardTitle>
-          <CardDescription>{t('profile.yourActivity')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="flex items-center space-x-2">
-              <Calendar className="text-primary h-4 w-4" />
-              <div>
-                <p className="text-muted-foreground text-sm">
-                  {t('profile.memberSince')}
-                </p>
-                <p className="font-medium">
-                  {profile.memberSince.toLocaleDateString(
-                    language === 'es' ? 'es-ES' : 'en-US',
-                    { month: 'long', year: 'numeric' }
-                  )}
-                </p>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('profile.accountStatistics')}</CardTitle>
+            <CardDescription>{t('profile.yourActivity')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-4">
+              <div className="flex items-center space-x-2">
+                <Calendar className="text-primary h-4 w-4" />
+                <div>
+                  <p className="text-muted-foreground text-sm">
+                    {t('profile.memberSince')}
+                  </p>
+                  <p className="font-medium">
+                    {profile.memberSince.toLocaleDateString(
+                      language === 'es' ? 'es-ES' : 'en-US',
+                      { month: 'long', year: 'numeric' }
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Wallet className="text-primary h-4 w-4" />
+                <div>
+                  <p className="text-muted-foreground text-sm">
+                    {t('profile.accounts')}
+                  </p>
+                  <p className="font-medium">{profile.totalAccounts}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <TrendingUp className="text-primary h-4 w-4" />
+                <div>
+                  <p className="text-muted-foreground text-sm">
+                    {t('profile.totalTransactions')}
+                  </p>
+                  <p className="font-medium">{profile.totalTransactions}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Shield className="text-primary h-4 w-4" />
+                <div>
+                  <p className="text-muted-foreground text-sm">
+                    {t('profile.signInMethod')}
+                  </p>
+                  <p className="font-medium">Google</p>
+                </div>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <Wallet className="text-primary h-4 w-4" />
-              <div>
-                <p className="text-muted-foreground text-sm">
-                  {t('profile.accounts')}
-                </p>
-                <p className="font-medium">{profile.totalAccounts}</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <TrendingUp className="text-primary h-4 w-4" />
-              <div>
-                <p className="text-muted-foreground text-sm">
-                  {t('profile.totalTransactions')}
-                </p>
-                <p className="font-medium">{profile.totalTransactions}</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Shield className="text-primary h-4 w-4" />
-              <div>
-                <p className="text-muted-foreground text-sm">
-                  {t('profile.signInMethod')}
-                </p>
-                <p className="font-medium">Google</p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </form>
+          </CardContent>
+        </Card>
+      </form>
+    </Form>
   )
 }

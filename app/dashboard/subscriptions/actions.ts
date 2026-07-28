@@ -1,6 +1,11 @@
 'use server'
 
 import { parseCurrencyInput } from '@/lib/currency'
+import {
+  FREE_LIMITS,
+  getUserPlan,
+  reconcileSubscriptionLocks,
+} from '@/lib/plan-limits'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
 import {
@@ -49,6 +54,9 @@ export async function getSubscriptions() {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
+  const plan = await getUserPlan(session.user.id)
+  await reconcileSubscriptionLocks(session.user.id, plan)
+
   const subscriptions = await prisma.subscription.findMany({
     where: { userId: session.user.id },
     include: { category: true, subcategory: true },
@@ -66,6 +74,18 @@ export async function getSubscriptions() {
 export async function createSubscription(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
+
+  const plan = await getUserPlan(session.user.id)
+  if (plan !== 'PRO') {
+    const activeCount = await prisma.subscription.count({
+      where: { userId: session.user.id, isActive: true },
+    })
+    if (activeCount >= FREE_LIMITS.subscriptions) {
+      throw new Error(
+        `Free plan is limited to ${FREE_LIMITS.subscriptions} subscriptions. Upgrade to Pro for unlimited subscriptions.`
+      )
+    }
+  }
 
   const frequency = parseFrequency(formData.get('frequency'))
   const {

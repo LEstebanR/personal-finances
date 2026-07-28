@@ -16,9 +16,37 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 })
 
+// No production domain yet — override with NEXT_PUBLIC_SITE_URL once one
+// exists. Needed for metadataBase (resolves OG/Twitter image URLs and
+// canonical links) and reused by app/sitemap.ts and app/robots.ts.
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://lesfin.app'
+
 export const metadata: Metadata = {
-  title: 'LESFin',
-  description: 'LESFin — personal finance tracker',
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: 'LESFin — Personal finance tracker',
+    template: '%s · LESFin',
+  },
+  description:
+    'Track accounts, transactions, debts, subscriptions, and budget in one clear view. Free, sign in with Google — no bank access required.',
+  keywords: [
+    'personal finance app',
+    'budget tracker',
+    'expense tracker',
+    'debt tracker',
+    'subscription tracker',
+    'money management app',
+    'finanzas personales',
+  ],
+  robots: {
+    index: true,
+    follow: true,
+  },
+  alternates: {
+    types: {
+      'application/rss+xml': '/blog/rss.xml',
+    },
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
