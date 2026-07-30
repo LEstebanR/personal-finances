@@ -57,6 +57,7 @@ interface Transaction {
   categoryName: string
   subcategoryName: string | null
   sourceName: string | null
+  isDebtPayment: boolean
   createdAt: Date
 }
 
@@ -550,10 +551,17 @@ export function Transactions() {
                                   )}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  <TransactionRowActions
-                                    item={toEditableItem(item)}
-                                    onEdit={handleEdit}
-                                  />
+                                  {item.itemType === 'transaction' &&
+                                  item.isDebtPayment ? (
+                                    <span className="text-muted-foreground text-xs">
+                                      {t('transactions.debtPaymentLocked')}
+                                    </span>
+                                  ) : (
+                                    <TransactionRowActions
+                                      item={toEditableItem(item)}
+                                      onEdit={handleEdit}
+                                    />
+                                  )}
                                 </TableCell>
                               </TableRow>
                             ))}

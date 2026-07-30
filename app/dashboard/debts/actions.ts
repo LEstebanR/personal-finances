@@ -11,6 +11,7 @@ import {
   uuidField,
   validDate,
 } from '@/lib/validation'
+import { type Prisma } from '@prisma/client'
 import { z } from 'zod'
 
 const debtTypeSchema = z.enum(['loan', 'credit_card'])
@@ -213,6 +214,27 @@ export async function deleteDebt(id: string) {
   })
 }
 
+// Debt payments are categorized under the same "Deuda" default category the
+// budget's minimum-payment planning uses, so the mirrored Transaction lines
+// up with what's already budgeted for the debt.
+async function getOrCreateDebtCategory(
+  tx: Prisma.TransactionClient,
+  userId: string
+) {
+  const existing = await tx.category.findFirst({
+    where: {
+      userId,
+      type: 'expense',
+      name: { equals: 'Deuda', mode: 'insensitive' },
+    },
+  })
+  if (existing) return existing
+
+  return tx.category.create({
+    data: { userId, name: 'Deuda', type: 'expense', isDefault: true },
+  })
+}
+
 export async function createDebtPayment(formData: FormData) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
@@ -247,6 +269,19 @@ export async function createDebtPayment(formData: FormData) {
       data: { remainingBalance: { decrement: amount } },
     })
 
+    const category = await getOrCreateDebtCategory(tx, session.user.id)
+    const transaction = await tx.transaction.create({
+      data: {
+        userId: session.user.id,
+        accountId,
+        amount,
+        type: 'expense',
+        description: note?.trim() || `Pago: ${debt.name}`,
+        date,
+        categoryId: category.id,
+      },
+    })
+
     return tx.debtPayment.create({
       data: {
         debtId,
@@ -255,6 +290,7 @@ export async function createDebtPayment(formData: FormData) {
         amount,
         date,
         note,
+        transactionId: transaction.id,
       },
     })
   })
@@ -281,6 +317,9 @@ export async function deleteDebtPayment(id: string) {
     })
 
     await tx.debtPayment.delete({ where: { id } })
+    if (existing.transactionId) {
+      await tx.transaction.delete({ where: { id: existing.transactionId } })
+    }
   })
 }
 

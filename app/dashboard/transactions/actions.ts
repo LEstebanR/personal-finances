@@ -51,18 +51,32 @@ export async function getTransactions() {
 
   const transactions = await prisma.transaction.findMany({
     where: { userId: session.user.id },
-    include: { category: true, subcategory: true, account: true, debt: true },
+    include: {
+      category: true,
+      subcategory: true,
+      account: true,
+      debt: true,
+      debtPayment: true,
+    },
     orderBy: { createdAt: 'desc' },
   })
 
   return transactions.map(
-    ({ category, subcategory, account, debt, ...transaction }) => ({
+    ({
+      category,
+      subcategory,
+      account,
+      debt,
+      debtPayment,
+      ...transaction
+    }) => ({
       ...transaction,
       amount: Number(transaction.amount),
       categoryName: category.name,
       subcategoryName: subcategory?.name ?? null,
       sourceName: account?.name ?? debt?.name ?? null,
       isDebtSource: !!debt,
+      isDebtPayment: !!debtPayment,
     })
   )
 }
@@ -187,7 +201,13 @@ export async function updateTransaction(id: string, formData: FormData) {
   const transaction = await prisma.$transaction(async (tx) => {
     const existing = await tx.transaction.findFirstOrThrow({
       where: { id, userId: session.user.id },
+      include: { debtPayment: true },
     })
+    if (existing.debtPayment) {
+      throw new Error(
+        'This transaction mirrors a debt payment; edit or delete it from the debt instead'
+      )
+    }
     await tx.category.findFirstOrThrow({
       where: { id: categoryId, userId: session.user.id },
     })
@@ -252,7 +272,13 @@ export async function deleteTransaction(id: string) {
   await prisma.$transaction(async (tx) => {
     const existing = await tx.transaction.findFirstOrThrow({
       where: { id, userId: session.user.id },
+      include: { debtPayment: true },
     })
+    if (existing.debtPayment) {
+      throw new Error(
+        'This transaction mirrors a debt payment; edit or delete it from the debt instead'
+      )
+    }
 
     if (existing.accountId) {
       const reversal =

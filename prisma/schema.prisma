@@ -47,6 +47,7 @@ model Transaction {
   debt          Debt?        @relation(fields: [debtId], references: [id], onDelete: Cascade)
   category      Category     @relation(fields: [categoryId], references: [id])
   subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
+  debtPayment   DebtPayment?
 
   @@index([userId])
   @@index([accountId])
@@ -250,17 +251,23 @@ model Debt {
   @@index([userId])
 }
 
+// A debt payment always mirrors itself as an expense Transaction (categorized
+// under "Deuda") so it counts toward the budget and expense totals like any
+// other spend. transactionId links the two records so they can be kept in
+// sync and deleted together.
 model DebtPayment {
-  id        String   @id @default(uuid())
-  debtId    String
-  accountId String
-  userId    String
-  amount    Decimal  @db.Decimal(15, 2)
-  date      DateTime
-  note      String?
-  createdAt DateTime @default(now())
-  debt      Debt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
-  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  id            String       @id @default(uuid())
+  debtId        String
+  accountId     String
+  userId        String
+  amount        Decimal      @db.Decimal(15, 2)
+  date          DateTime
+  note          String?
+  transactionId String?      @unique
+  createdAt     DateTime     @default(now())
+  debt          Debt         @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  account       Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: SetNull)
 
   @@index([debtId])
   @@index([accountId])

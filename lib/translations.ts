@@ -428,6 +428,7 @@ export const translations = {
       cancel: 'Cancel',
       deleteSuccess: 'Deleted successfully!',
       deleteFailed: 'Failed to delete. Please try again.',
+      debtPaymentLocked: 'Manage from Debts',
     },
     settings: {
       language: 'Language',
@@ -1083,6 +1084,7 @@ export const translations = {
       cancel: 'Cancelar',
       deleteSuccess: '¡Eliminado exitosamente!',
       deleteFailed: 'No se pudo eliminar. Intentar de nuevo.',
+      debtPaymentLocked: 'Gestionar desde Deudas',
     },
     debts: {
       title: 'Deudas',
