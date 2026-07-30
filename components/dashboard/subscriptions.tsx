@@ -445,10 +445,11 @@ export function Subscriptions() {
         ) : (
           <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
             {[...subscriptions]
-              .sort(
-                (a, b) =>
-                  getNextRenewalDate(a).getTime() -
-                  getNextRenewalDate(b).getTime()
+              .sort((a, b) =>
+                a.isActive === b.isActive
+                  ? getNextRenewalDate(a).getTime() -
+                    getNextRenewalDate(b).getTime()
+                  : Number(b.isActive) - Number(a.isActive)
               )
               .map((subscription) => (
                 <SubscriptionCard
