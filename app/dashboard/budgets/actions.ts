@@ -613,6 +613,80 @@ export async function convertBudgetItemToRecurring(
   return { ...item, amount: Number(item.amount) }
 }
 
+// Spins off a RecurringExpense (+ its first BudgetItem occurrence) from an
+// already-recorded Transaction, using the submitted fields as the template.
+// The Transaction itself is left untouched — it stays the accurate record of
+// what already happened — this only starts a forward-looking planned stream.
+export async function convertTransactionToRecurring(
+  id: string,
+  formData: FormData
+) {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  const {
+    categoryId,
+    subcategoryId,
+    amount,
+    name,
+    frequency,
+    intervalWeeks,
+    date,
+  } = recurringExpenseSchema.parse({
+    categoryId: formData.get('categoryId'),
+    subcategoryId: (formData.get('subcategoryId') as string) || null,
+    amount: parseCurrencyInput(formData.get('amount')),
+    name: formData.get('description'),
+    frequency: parseRecurringFrequency(formData.get('frequency')),
+    intervalWeeks: formData.get('intervalWeeks') || undefined,
+    date: new Date(formData.get('date') as string),
+  })
+
+  await prisma.transaction.findFirstOrThrow({
+    where: { id, userId: session.user.id },
+  })
+  await prisma.category.findFirstOrThrow({
+    where: { id: categoryId, userId: session.user.id },
+  })
+
+  const dueDay = frequency === 'monthly' ? date.getUTCDate() : null
+  const weekday =
+    frequency === 'weekly' || frequency === 'custom' ? date.getUTCDay() : null
+
+  const recurringExpense = await prisma.$transaction(async (tx) => {
+    const created = await tx.recurringExpense.create({
+      data: {
+        userId: session.user.id,
+        name,
+        categoryId,
+        subcategoryId,
+        amount,
+        frequency,
+        dueDay,
+        weekday,
+        intervalWeeks: frequency === 'custom' ? intervalWeeks : null,
+        startDate: date,
+      },
+    })
+
+    await tx.budgetItem.create({
+      data: {
+        userId: session.user.id,
+        categoryId,
+        subcategoryId,
+        recurringExpenseId: created.id,
+        date,
+        amount,
+        description: name,
+      },
+    })
+
+    return created
+  })
+
+  return recurringExpense
+}
+
 // Stops future occurrences (not-yet-arrived planned items) but keeps past
 // and current entries as history, mirroring how cancelling a Subscription
 // behaves.

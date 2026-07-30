@@ -1,5 +1,6 @@
 'use client'
 
+import { convertTransactionToRecurring } from '@/app/dashboard/budgets/actions'
 import {
   updateTransaction,
   updateTransfer,
@@ -24,6 +25,8 @@ import { Label } from '../ui/label'
 import { SelectGroup, SelectItem, SelectLabel } from '../ui/select'
 import { SelectField } from '../ui/select-field'
 import { SubcategoryCombobox } from '../ui/subcategory-combobox'
+import { Switch } from '../ui/switch'
+import { TextField } from '../ui/text-field'
 import { Textarea } from '../ui/textarea'
 import { useDashboardRefresh } from './refresh-provider'
 
@@ -71,7 +74,10 @@ export function EditTransactionDialog({
   const [categoryId, setCategoryId] = useState('')
   const [sourceType, setSourceType] = useState<'account' | 'debt'>('account')
   const [sourceId, setSourceId] = useState('')
+  const [isRecurring, setIsRecurring] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
+  const canBeRecurring =
+    item?.itemType === 'transaction' && item.type === 'expense'
 
   const schema = z
     .object({
@@ -79,6 +85,8 @@ export function EditTransactionDialog({
       fromAccountId: z.string().optional(),
       toAccountId: z.string().optional(),
       sourceKey: z.string().optional(),
+      frequency: z.string().optional(),
+      intervalWeeks: z.string().optional(),
     })
     .superRefine((data, ctx) => {
       if (item?.itemType === 'transfer') {
@@ -97,11 +105,25 @@ export function EditTransactionDialog({
           })
         }
       }
+      if (isRecurring && data.frequency === 'custom' && !data.intervalWeeks) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: t('budgets.intervalWeeksRequired'),
+          path: ['intervalWeeks'],
+        })
+      }
     })
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
-    defaultValues: { amount: '', fromAccountId: '', toAccountId: '' },
+    defaultValues: {
+      amount: '',
+      fromAccountId: '',
+      toAccountId: '',
+      frequency: 'monthly',
+      intervalWeeks: '4',
+    },
   })
+  const frequency = form.watch('frequency')
 
   useEffect(() => {
     setCategoryId(item?.itemType === 'transaction' ? item.categoryId : '')
@@ -114,6 +136,7 @@ export function EditTransactionDialog({
         : ''
     setSourceType(initialSourceType)
     setSourceId(initialSourceId)
+    setIsRecurring(false)
 
     form.reset({
       amount: item ? String(item.amount) : '',
@@ -123,6 +146,8 @@ export function EditTransactionDialog({
         item?.itemType === 'transaction'
           ? `${initialSourceType}:${initialSourceId}`
           : '',
+      frequency: 'monthly',
+      intervalWeeks: '4',
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item])
@@ -137,10 +162,15 @@ export function EditTransactionDialog({
     }
     if (
       item.itemType === 'transaction' &&
+      !isRecurring &&
       !formData.get('accountId') &&
       !formData.get('debtId')
     ) {
       toast.error(t('transactions.sourceRequired'))
+      return
+    }
+    if (isRecurring && !String(formData.get('description') ?? '').trim()) {
+      toast.error(t('budgets.nameRequired'))
       return
     }
 
@@ -150,6 +180,13 @@ export function EditTransactionDialog({
       if (item.itemType === 'transfer') {
         formData.set('type', 'transfer')
         await updateTransfer(item.id, formData)
+      } else if (isRecurring) {
+        await convertTransactionToRecurring(item.id, formData)
+        toast.success(t('budgets.convertedToRecurring'))
+        triggerRefresh()
+        onOpenChange(false)
+        setIsSubmitting(false)
+        return
       } else {
         formData.set('type', item.type)
         await updateTransaction(item.id, formData)
@@ -253,7 +290,11 @@ export function EditTransactionDialog({
                 />
               </div>
             )}
-            <CurrencyField name="amount" label={t('transactions.amount')} />
+            <CurrencyField
+              name="amount"
+              label={t('transactions.amount')}
+              defaultValue={String(item.amount)}
+            />
             <div className="flex flex-col gap-1">
               <Label>{t('transactions.date')}</Label>
               <DatePicker
@@ -294,6 +335,50 @@ export function EditTransactionDialog({
                 }
               />
             </div>
+            {canBeRecurring && (
+              <div className="flex flex-col gap-3 rounded-md border p-3">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="isRecurring" className="font-normal">
+                    {t('budgets.convertToRecurring')}
+                  </Label>
+                  <Switch
+                    id="isRecurring"
+                    checked={isRecurring}
+                    onCheckedChange={setIsRecurring}
+                  />
+                </div>
+                {isRecurring && (
+                  <>
+                    <SelectField
+                      name="frequency"
+                      label={t('subscriptions.frequency')}
+                    >
+                      <SelectItem value="monthly">
+                        {t('subscriptions.monthly')}
+                      </SelectItem>
+                      <SelectItem value="weekly">
+                        {t('subscriptions.weekly')}
+                      </SelectItem>
+                      <SelectItem value="custom">
+                        {t('budgets.everyNWeeks')}
+                      </SelectItem>
+                    </SelectField>
+                    {frequency === 'custom' && (
+                      <TextField
+                        name="intervalWeeks"
+                        label={t('budgets.intervalWeeksLabel')}
+                        type="number"
+                        min={2}
+                        max={52}
+                      />
+                    )}
+                    <p className="text-muted-foreground text-xs">
+                      {t('budgets.recurringNote')}
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
             <Button className="w-full" type="submit" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
