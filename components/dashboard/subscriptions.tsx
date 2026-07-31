@@ -9,7 +9,7 @@ import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
 import { useSubscriptions } from '@/lib/queries'
-import { Landmark, PlusIcon, Repeat, Trash2 } from 'lucide-react'
+import { CreditCard, Landmark, PlusIcon, Repeat, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Cell, Pie, PieChart } from 'recharts'
 import { toast } from 'sonner'
@@ -45,6 +45,7 @@ import {
   AddSubscriptionDialog,
   EditableSubscription,
 } from './add-subscription-dialog'
+import { PaySubscriptionDialog } from './pay-subscription-dialog'
 import { useDashboardRefresh } from './refresh-provider'
 
 const CHART_COLORS = [
@@ -83,6 +84,9 @@ interface Subscription {
   dueMonth: number | null
   startDate: Date
   isActive: boolean
+  accountId: string | null
+  debtId: string | null
+  sourceName: string | null
 }
 
 // Next occurrence of dueDay/dueMonth on or after today, used to sort cards
@@ -232,6 +236,8 @@ export function Subscriptions() {
               dueDay: subscription.dueDay,
               dueMonth: subscription.dueMonth,
               startDate: subscription.startDate,
+              accountId: subscription.accountId,
+              debtId: subscription.debtId,
             })
           }
         >
@@ -253,26 +259,46 @@ export function Subscriptions() {
               })
             : t('debts.dueOnDay', { day: String(subscription.dueDay) })}
         </p>
+        {subscription.sourceName && (
+          <p className="mt-1 text-xs text-gray-500">
+            {t('subscriptions.paidWith', { name: subscription.sourceName })}
+          </p>
+        )}
       </div>
 
       <div className="flex gap-2">
+        {subscription.isActive && (
+          <PaySubscriptionDialog
+            subscription={subscription}
+            trigger={
+              <Button className="min-w-0 flex-1" size="sm">
+                <CreditCard className="h-4 w-4 shrink-0" />
+                <span className="truncate">{t('subscriptions.pay')}</span>
+              </Button>
+            }
+          />
+        )}
         {subscription.isActive ? (
           <Button
-            className="flex-1"
+            className="min-w-0 flex-1"
             size="sm"
             variant="outline"
             onClick={() => handleCancel(subscription.id)}
           >
-            {t('subscriptions.cancelSubscription')}
+            <span className="truncate">
+              {t('subscriptions.cancelSubscription')}
+            </span>
           </Button>
         ) : (
           <Button
-            className="flex-1"
+            className="min-w-0 flex-1"
             size="sm"
             variant="outline"
             onClick={() => handleReactivate(subscription.id)}
           >
-            {t('subscriptions.reactivateSubscription')}
+            <span className="truncate">
+              {t('subscriptions.reactivateSubscription')}
+            </span>
           </Button>
         )}
         <AlertDialog>

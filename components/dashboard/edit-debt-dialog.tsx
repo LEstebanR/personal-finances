@@ -21,11 +21,9 @@ import {
   AlertDialogTrigger,
 } from '../ui/alert-dialog'
 import { Button } from '../ui/button'
-import { CurrencyInput } from '../ui/currency-input'
+import { CurrencyField } from '../ui/currency-field'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import { Form } from '../ui/form'
-import { Input } from '../ui/input'
-import { Label } from '../ui/label'
 import { TextField } from '../ui/text-field'
 import { AddDebtInterestDialog } from './add-debt-interest-dialog'
 import { useDashboardRefresh } from './refresh-provider'
@@ -37,6 +35,17 @@ interface Debt {
   minimumPayment: number | null
   paymentDueDay: number | null
   creditLimit: number | null
+}
+
+function toFormValues(debt: Debt | null) {
+  return {
+    name: debt?.name ?? '',
+    minimumPayment:
+      debt?.minimumPayment != null ? String(debt.minimumPayment) : '',
+    paymentDueDay:
+      debt?.paymentDueDay != null ? String(debt.paymentDueDay) : '',
+    creditLimit: debt?.creditLimit != null ? String(debt.creditLimit) : '',
+  }
 }
 
 export function EditDebtDialog({
@@ -55,17 +64,19 @@ export function EditDebtDialog({
 
   const schema = z.object({
     name: z.string().trim().min(1, t('debts.nameRequired')),
+    minimumPayment: z.string().optional(),
+    paymentDueDay: z.string().optional(),
+    creditLimit: z.string().optional(),
   })
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
-    defaultValues: { name: debt?.name ?? '' },
+    defaultValues: toFormValues(debt),
   })
 
   useEffect(() => {
-    if (!debt) return
-    form.reset({ name: debt.name })
+    form.reset(toFormValues(debt))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debt?.id])
+  }, [debt])
 
   const onSubmit = form.handleSubmit(async () => {
     if (!debt) return
@@ -115,41 +126,36 @@ export function EditDebtDialog({
           >
             <TextField name="name" label={t('debts.name')} type="text" />
             {debt.type === 'credit_card' && (
-              <div className="flex flex-col gap-1">
-                <Label>{t('debts.creditLimit')}</Label>
-                <CurrencyInput
-                  name="creditLimit"
-                  defaultValue={
-                    typeof debt.creditLimit === 'number'
-                      ? String(debt.creditLimit)
-                      : undefined
-                  }
-                />
-              </div>
+              <CurrencyField
+                key={`creditLimit-${debt.id}`}
+                name="creditLimit"
+                label={t('debts.creditLimit')}
+                defaultValue={
+                  debt.creditLimit != null
+                    ? String(debt.creditLimit)
+                    : undefined
+                }
+              />
             )}
             <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <Label>{t('debts.minimumPayment')}</Label>
-                <CurrencyInput
-                  name="minimumPayment"
-                  defaultValue={
-                    typeof debt.minimumPayment === 'number'
-                      ? String(debt.minimumPayment)
-                      : undefined
-                  }
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>{t('debts.paymentDueDay')}</Label>
-                <Input
-                  type="number"
-                  name="paymentDueDay"
-                  min={1}
-                  max={31}
-                  placeholder={t('debts.dayOfMonth')}
-                  defaultValue={debt.paymentDueDay ?? undefined}
-                />
-              </div>
+              <CurrencyField
+                key={`minimumPayment-${debt.id}`}
+                name="minimumPayment"
+                label={t('debts.minimumPayment')}
+                defaultValue={
+                  debt.minimumPayment != null
+                    ? String(debt.minimumPayment)
+                    : undefined
+                }
+              />
+              <TextField
+                name="paymentDueDay"
+                label={t('debts.paymentDueDay')}
+                type="number"
+                min={1}
+                max={31}
+                placeholder={t('debts.dayOfMonth')}
+              />
             </div>
             <AddDebtInterestDialog
               debt={debt}

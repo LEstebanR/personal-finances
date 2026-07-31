@@ -1,5 +1,6 @@
 'use server'
 
+import { createTransaction } from '@/app/dashboard/transactions/actions'
 import { parseCurrencyInput } from '@/lib/currency'
 import {
   FREE_LIMITS,
@@ -44,11 +45,26 @@ const subscriptionFieldsSchema = z.object({
   frequency: z.enum(['monthly', 'yearly']),
   dueDay: z.number().int().min(1).max(31),
   dueMonth: z.number().int().min(1).max(12).nullable(),
+  accountId: uuidField.nullable(),
+  debtId: uuidField.nullable(),
 })
 
-const createSubscriptionSchema = subscriptionFieldsSchema.extend({
-  startDate: validDate,
-})
+const paymentSourceRefinement = (data: {
+  accountId: string | null
+  debtId: string | null
+}) => !!data.accountId || !!data.debtId
+
+const updateSubscriptionSchema = subscriptionFieldsSchema.refine(
+  paymentSourceRefinement,
+  { message: 'An account or credit card is required', path: ['accountId'] }
+)
+
+const createSubscriptionSchema = subscriptionFieldsSchema
+  .extend({ startDate: validDate })
+  .refine(paymentSourceRefinement, {
+    message: 'An account or credit card is required',
+    path: ['accountId'],
+  })
 
 export async function getSubscriptions() {
   const session = await getServerSession()
@@ -59,16 +75,20 @@ export async function getSubscriptions() {
 
   const subscriptions = await prisma.subscription.findMany({
     where: { userId: session.user.id },
-    include: { category: true, subcategory: true },
+    include: { category: true, subcategory: true, account: true, debt: true },
     orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
   })
 
-  return subscriptions.map(({ category, subcategory, ...sub }) => ({
-    ...sub,
-    amount: Number(sub.amount),
-    categoryName: category.name,
-    subcategoryName: subcategory?.name ?? null,
-  }))
+  return subscriptions.map(
+    ({ category, subcategory, account, debt, ...sub }) => ({
+      ...sub,
+      amount: Number(sub.amount),
+      categoryName: category.name,
+      subcategoryName: subcategory?.name ?? null,
+      sourceName: account?.name ?? debt?.name ?? null,
+      isDebtSource: !!debt,
+    })
+  )
 }
 
 export async function createSubscription(formData: FormData) {
@@ -95,6 +115,8 @@ export async function createSubscription(formData: FormData) {
     amount,
     dueDay,
     dueMonth,
+    accountId,
+    debtId,
     startDate,
   } = createSubscriptionSchema.parse({
     name: formData.get('name'),
@@ -105,12 +127,23 @@ export async function createSubscription(formData: FormData) {
     dueDay: parseDueDay(formData.get('dueDay')),
     dueMonth:
       frequency === 'yearly' ? parseDueMonth(formData.get('dueMonth')) : null,
+    accountId: (formData.get('accountId') as string) || null,
+    debtId: (formData.get('debtId') as string) || null,
     startDate: new Date(formData.get('startDate') as string),
   })
 
   await prisma.category.findFirstOrThrow({
     where: { id: categoryId, userId: session.user.id },
   })
+  if (accountId) {
+    await prisma.account.findFirstOrThrow({
+      where: { id: accountId, userId: session.user.id },
+    })
+  } else if (debtId) {
+    await prisma.debt.findFirstOrThrow({
+      where: { id: debtId, userId: session.user.id, type: 'credit_card' },
+    })
+  }
 
   const subscription = await prisma.subscription.create({
     data: {
@@ -122,6 +155,8 @@ export async function createSubscription(formData: FormData) {
       frequency,
       dueDay,
       dueMonth,
+      accountId,
+      debtId,
       startDate,
     },
   })
@@ -134,17 +169,27 @@ export async function updateSubscription(id: string, formData: FormData) {
   if (!session) throw new Error('Not authenticated')
 
   const frequency = parseFrequency(formData.get('frequency'))
-  const { name, categoryId, subcategoryId, amount, dueDay, dueMonth } =
-    subscriptionFieldsSchema.parse({
-      name: formData.get('name'),
-      categoryId: formData.get('categoryId'),
-      subcategoryId: (formData.get('subcategoryId') as string) || null,
-      amount: parseCurrencyInput(formData.get('amount')),
-      frequency,
-      dueDay: parseDueDay(formData.get('dueDay')),
-      dueMonth:
-        frequency === 'yearly' ? parseDueMonth(formData.get('dueMonth')) : null,
-    })
+  const {
+    name,
+    categoryId,
+    subcategoryId,
+    amount,
+    dueDay,
+    dueMonth,
+    accountId,
+    debtId,
+  } = updateSubscriptionSchema.parse({
+    name: formData.get('name'),
+    categoryId: formData.get('categoryId'),
+    subcategoryId: (formData.get('subcategoryId') as string) || null,
+    amount: parseCurrencyInput(formData.get('amount')),
+    frequency,
+    dueDay: parseDueDay(formData.get('dueDay')),
+    dueMonth:
+      frequency === 'yearly' ? parseDueMonth(formData.get('dueMonth')) : null,
+    accountId: (formData.get('accountId') as string) || null,
+    debtId: (formData.get('debtId') as string) || null,
+  })
 
   await prisma.subscription.findFirstOrThrow({
     where: { id, userId: session.user.id },
@@ -152,6 +197,15 @@ export async function updateSubscription(id: string, formData: FormData) {
   await prisma.category.findFirstOrThrow({
     where: { id: categoryId, userId: session.user.id },
   })
+  if (accountId) {
+    await prisma.account.findFirstOrThrow({
+      where: { id: accountId, userId: session.user.id },
+    })
+  } else if (debtId) {
+    await prisma.debt.findFirstOrThrow({
+      where: { id: debtId, userId: session.user.id, type: 'credit_card' },
+    })
+  }
 
   const subscription = await prisma.$transaction(async (tx) => {
     const updated = await tx.subscription.update({
@@ -164,6 +218,8 @@ export async function updateSubscription(id: string, formData: FormData) {
         frequency,
         dueDay,
         dueMonth,
+        accountId,
+        debtId,
       },
     })
 
@@ -179,6 +235,52 @@ export async function updateSubscription(id: string, formData: FormData) {
   })
 
   return { ...subscription, amount: Number(subscription.amount) }
+}
+
+const paySubscriptionSchema = z
+  .object({
+    accountId: uuidField.nullable(),
+    debtId: uuidField.nullable(),
+    amount: positiveAmount,
+    date: validDate,
+  })
+  .refine((data) => !!data.accountId || !!data.debtId, {
+    message: 'An account or credit card is required',
+    path: ['accountId'],
+  })
+
+// Paying a subscription is just a regular expense transaction, categorized
+// like the subscription and charged to the chosen account/credit card —
+// createTransaction already handles the account/debt balance mutation.
+export async function paySubscription(id: string, formData: FormData) {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  const subscription = await prisma.subscription.findFirstOrThrow({
+    where: { id, userId: session.user.id },
+  })
+
+  const { accountId, debtId, amount, date } = paySubscriptionSchema.parse({
+    accountId: (formData.get('accountId') as string) || null,
+    debtId: (formData.get('debtId') as string) || null,
+    amount: parseCurrencyInput(formData.get('amount')),
+    date: new Date(formData.get('date') as string),
+  })
+
+  const transactionFormData = new FormData()
+  transactionFormData.set('accountId', accountId ?? '')
+  transactionFormData.set('debtId', debtId ?? '')
+  // parseCurrencyInput expects comma-decimal input (as CurrencyField produces);
+  // String(amount) is always period-decimal with no thousands separators, so a
+  // straight swap round-trips it exactly.
+  transactionFormData.set('amount', String(amount).replace('.', ','))
+  transactionFormData.set('type', 'expense')
+  transactionFormData.set('categoryId', subscription.categoryId)
+  transactionFormData.set('subcategoryId', subscription.subcategoryId ?? '')
+  transactionFormData.set('description', subscription.name)
+  transactionFormData.set('date', date.toISOString())
+
+  return createTransaction(transactionFormData)
 }
 
 export async function cancelSubscription(id: string) {

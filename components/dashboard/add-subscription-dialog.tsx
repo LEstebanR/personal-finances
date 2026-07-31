@@ -6,9 +6,10 @@ import {
 } from '@/app/dashboard/subscriptions/actions'
 import { useLanguage } from '@/components/language-provider'
 import { isPlanLimitError } from '@/lib/plan-limits-shared'
+import { useAccounts, useDebts } from '@/lib/queries'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader, PlusIcon } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -27,7 +28,7 @@ import {
 } from '../ui/dialog'
 import { Form } from '../ui/form'
 import { Label } from '../ui/label'
-import { SelectItem } from '../ui/select'
+import { SelectGroup, SelectItem, SelectLabel } from '../ui/select'
 import { SelectField } from '../ui/select-field'
 import { SubcategoryCombobox } from '../ui/subcategory-combobox'
 import { TextField } from '../ui/text-field'
@@ -58,6 +59,8 @@ export interface EditableSubscription {
   dueDay: number | null
   dueMonth: number | null
   startDate: Date
+  accountId: string | null
+  debtId: string | null
 }
 
 export function AddSubscriptionDialog({
@@ -78,6 +81,20 @@ export function AddSubscriptionDialog({
   const setIsOpen = setControlledOpen ?? setInternalOpen
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [categoryId, setCategoryId] = useState(subscription?.categoryId ?? '')
+  const { data: rawAccounts = [], isLoading: loadingAccounts } = useAccounts()
+  const { data: rawDebts = [] } = useDebts()
+  const availableAccounts = rawAccounts.filter(
+    (account) => !account.isArchived && !account.lockedByPlan
+  )
+  const availableDebts = rawDebts.filter(
+    (debt) => debt.type === 'credit_card' && !debt.lockedByPlan
+  )
+  const [sourceType, setSourceType] = useState<'account' | 'debt'>(
+    subscription?.debtId ? 'debt' : 'account'
+  )
+  const [sourceId, setSourceId] = useState(
+    subscription?.accountId ?? subscription?.debtId ?? ''
+  )
   const isEditing = !!subscription
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -86,6 +103,7 @@ export function AddSubscriptionDialog({
     amount: z.string().min(1, t('subscriptions.amountRequired')),
     frequency: z.string(),
     dueDay: z.string().min(1, t('subscriptions.dueDayRequired')),
+    sourceKey: z.string().optional(),
   })
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -94,13 +112,43 @@ export function AddSubscriptionDialog({
       amount: subscription ? String(subscription.amount) : '',
       frequency: subscription?.frequency === 'yearly' ? 'yearly' : 'monthly',
       dueDay: subscription?.dueDay != null ? String(subscription.dueDay) : '',
+      sourceKey: subscription
+        ? `${subscription.debtId ? 'debt' : 'account'}:${subscription.accountId ?? subscription.debtId ?? ''}`
+        : '',
     },
   })
   const frequency = form.watch('frequency')
 
+  // The dialog instance used for editing is shared across every subscription
+  // (rendered once, controlled via the `subscription` prop), so its form and
+  // local state need to be explicitly resynced whenever a different
+  // subscription is opened for editing — they're only used as initial values
+  // by react-hook-form/useState otherwise.
+  useEffect(() => {
+    form.reset({
+      name: subscription?.name ?? '',
+      amount: subscription ? String(subscription.amount) : '',
+      frequency: subscription?.frequency === 'yearly' ? 'yearly' : 'monthly',
+      dueDay: subscription?.dueDay != null ? String(subscription.dueDay) : '',
+      sourceKey: subscription
+        ? `${subscription.debtId ? 'debt' : 'account'}:${subscription.accountId ?? subscription.debtId ?? ''}`
+        : '',
+    })
+    setCategoryId(subscription?.categoryId ?? '')
+    setSourceType(subscription?.debtId ? 'debt' : 'account')
+    setSourceId(subscription?.accountId ?? subscription?.debtId ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subscription])
+
   const onSubmit = form.handleSubmit(async () => {
-    setIsSubmitting(true)
     const formData = new FormData(formRef.current!)
+
+    if (!formData.get('accountId') && !formData.get('debtId')) {
+      toast.error(t('transactions.sourceRequired'))
+      return
+    }
+
+    setIsSubmitting(true)
 
     try {
       if (subscription) {
@@ -149,6 +197,7 @@ export function AddSubscriptionDialog({
             <div className="flex flex-col gap-1">
               <Label>{t('transactions.category')}</Label>
               <CategoryCombobox
+                key={`category-${subscription?.id ?? 'new'}`}
                 name="categoryId"
                 type="expense"
                 defaultValue={subscription?.categoryId}
@@ -158,13 +207,69 @@ export function AddSubscriptionDialog({
             <div className="flex flex-col gap-1">
               <Label>{t('transactions.subcategory')}</Label>
               <SubcategoryCombobox
+                key={`subcategory-${subscription?.id ?? 'new'}`}
                 name="subcategoryId"
                 categoryId={categoryId}
                 defaultValue={subscription?.subcategoryId ?? undefined}
               />
             </div>
+            <div className="flex flex-col gap-1">
+              <Label>{t('subscriptions.paymentSource')}</Label>
+              <SelectField
+                name="sourceKey"
+                placeholder={
+                  loadingAccounts
+                    ? t('transactions.loadingAccounts')
+                    : t('transactions.selectAnAccount')
+                }
+                onValueChange={(value) => {
+                  const [type, sourceKeyId] = value.split(':')
+                  setSourceType(type as 'account' | 'debt')
+                  setSourceId(sourceKeyId)
+                }}
+              >
+                <SelectGroup>
+                  <SelectLabel>{t('transactions.accounts')}</SelectLabel>
+                  {availableAccounts.map((account) => (
+                    <SelectItem
+                      key={account.id}
+                      value={`account:${account.id}`}
+                    >
+                      {account.name} ({account.type})
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+                {availableDebts.length > 0 && (
+                  <SelectGroup>
+                    <SelectLabel>{t('transactions.creditCards')}</SelectLabel>
+                    {availableDebts.map((debt) => (
+                      <SelectItem key={debt.id} value={`debt:${debt.id}`}>
+                        {debt.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
+              </SelectField>
+              <input
+                type="hidden"
+                name="accountId"
+                value={sourceType === 'account' ? sourceId : ''}
+              />
+              <input
+                type="hidden"
+                name="debtId"
+                value={sourceType === 'debt' ? sourceId : ''}
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
-              <CurrencyField name="amount" label={t('transactions.amount')} />
+              <CurrencyField
+                key={`amount-${subscription?.id ?? 'new'}`}
+                name="amount"
+                label={t('transactions.amount')}
+                defaultValue={
+                  subscription ? String(subscription.amount) : undefined
+                }
+              />
               <SelectField
                 name="frequency"
                 label={t('subscriptions.frequency')}

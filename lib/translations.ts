@@ -555,6 +555,14 @@ export const translations = {
       noSubscriptionsYet: 'No Subscriptions Yet',
       noSubscriptionsYetDesc:
         "You haven't added any subscriptions yet. Add one to have it show up in your budget automatically each month.",
+      paymentSource: 'Account or credit card',
+      paidWith: 'Paid with {name}',
+      pay: 'Pay',
+      payDialogTitle: 'Pay subscription',
+      payDialogDescription: 'Record the payment for {name}.',
+      recordingPayment: 'Recording payment...',
+      paymentRecorded: 'Payment recorded!',
+      paymentFailed: 'Failed to record payment. Please try again.',
     },
     budgets: {
       title: 'Budget',
@@ -1191,6 +1199,14 @@ export const translations = {
       noSubscriptionsYet: 'Todavía no hay suscripciones',
       noSubscriptionsYetDesc:
         'Todavía no hay suscripciones agregadas. Agregar una para que aparezca automáticamente en tu presupuesto cada mes.',
+      paymentSource: 'Cuenta o tarjeta de crédito',
+      paidWith: 'Se paga con {name}',
+      pay: 'Pagar',
+      payDialogTitle: 'Pagar suscripción',
+      payDialogDescription: 'Registrar el pago de {name}.',
+      recordingPayment: 'Registrando pago...',
+      paymentRecorded: '¡Pago registrado!',
+      paymentFailed: 'No se pudo registrar el pago. Intentar de nuevo.',
     },
     budgets: {
       title: 'Presupuesto',
