@@ -4,6 +4,7 @@ import { AccountDetail } from '@/components/dashboard/account-detail'
 import { Accounts } from '@/components/dashboard/accounts'
 import { AdminView } from '@/components/dashboard/admin-view'
 import { Budgets } from '@/components/dashboard/budgets'
+import { DebtDetail } from '@/components/dashboard/debt-detail'
 import { Debts } from '@/components/dashboard/debts'
 import { Overview } from '@/components/dashboard/overview'
 import { Profile } from '@/components/dashboard/profile'
@@ -25,6 +26,7 @@ export default function Dashboard() {
       {currentView === 'account' && <AccountDetail />}
       {currentView === 'transactions' && <Transactions />}
       {currentView === 'debts' && <Debts />}
+      {currentView === 'debt' && <DebtDetail />}
       {currentView === 'budget' && <Budgets />}
       {currentView === 'subscriptions' && <Subscriptions />}
       {currentView === 'spending-trends' && <SpendingTrends />}

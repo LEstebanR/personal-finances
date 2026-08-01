@@ -84,6 +84,21 @@ export async function getDebtPayments(debtId: string) {
   }))
 }
 
+export async function getDebtInterestCharges(debtId: string) {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  const charges = await prisma.debtInterestCharge.findMany({
+    where: { debtId, userId: session.user.id },
+    orderBy: { date: 'desc' },
+  })
+
+  return charges.map((charge) => ({
+    ...charge,
+    amount: Number(charge.amount),
+  }))
+}
+
 function parsePaymentDueDay(value: FormDataEntryValue | null): number | null {
   if (!String(value ?? '').trim()) return null
   const parsed = parseInt(String(value), 10)

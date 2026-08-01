@@ -26,7 +26,7 @@ import {
   Trash2,
   Wallet,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import type { DayButton } from 'react-day-picker'
 import { toast } from 'sonner'
 
@@ -56,6 +56,37 @@ function localDateKey(date: Date) {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
 }
 
+interface CategoryAmount {
+  category: string
+  amount: number
+}
+
+function aggregateByDayAndCategory(
+  entries: { date: Date | string; categoryName: string; amount: number }[]
+) {
+  const byDay = new Map<string, Map<string, number>>()
+  for (const entry of entries) {
+    const key = dbDateKey(entry.date)
+    const dayTotals = byDay.get(key) ?? new Map<string, number>()
+    dayTotals.set(
+      entry.categoryName,
+      (dayTotals.get(entry.categoryName) ?? 0) + entry.amount
+    )
+    byDay.set(key, dayTotals)
+  }
+
+  const result = new Map<string, CategoryAmount[]>()
+  for (const [key, dayTotals] of byDay) {
+    result.set(
+      key,
+      Array.from(dayTotals.entries())
+        .map(([category, amount]) => ({ category, amount }))
+        .sort((a, b) => b.amount - a.amount)
+    )
+  }
+  return result
+}
+
 const ITEMS_PER_PAGE = 10
 
 const MONTH_KEYS = [
@@ -83,7 +114,8 @@ interface DayBudgetItem {
 function BudgetDayButton({
   totals,
   actuals,
-  itemsByDay,
+  plannedCategories,
+  actualCategories,
   currency,
   locale,
   labels,
@@ -94,7 +126,8 @@ function BudgetDayButton({
 }: React.ComponentProps<typeof DayButton> & {
   totals: Map<string, number>
   actuals: Map<string, number>
-  itemsByDay: Map<string, DayBudgetItem[]>
+  plannedCategories: Map<string, CategoryAmount[]>
+  actualCategories: Map<string, CategoryAmount[]>
   currency: string
   locale: string
   labels: { planned: string; actual: string }
@@ -102,7 +135,8 @@ function BudgetDayButton({
   const key = localDateKey(day.date)
   const total = totals.get(key)
   const actual = actuals.get(key)
-  const dayItems = itemsByDay.get(key)
+  const plannedCats = plannedCategories.get(key) ?? []
+  const actualCats = actualCategories.get(key) ?? []
 
   const button = (
     <Button
@@ -131,13 +165,26 @@ function BudgetDayButton({
     </Button>
   )
 
-  const hasPlannedItems = !!dayItems && dayItems.length > 0
-  if (!hasPlannedItems && !actual) return button
+  const hasCategoryDetail = plannedCats.length > 0 || actualCats.length > 0
+  if (!hasCategoryDetail && !actual) return button
+
+  const plannedByCategory = new Map(
+    plannedCats.map((entry) => [entry.category, entry.amount])
+  )
+  const actualByCategory = new Map(
+    actualCats.map((entry) => [entry.category, entry.amount])
+  )
+  const categoryOrder = [
+    ...plannedCats.map((entry) => entry.category),
+    ...actualCats
+      .map((entry) => entry.category)
+      .filter((category) => !plannedByCategory.has(category)),
+  ]
 
   return (
     <HoverCard openDelay={150}>
       <HoverCardTrigger asChild>{button}</HoverCardTrigger>
-      <HoverCardContent className="w-64">
+      <HoverCardContent className="w-auto min-w-64">
         <div className="flex flex-col gap-2">
           <p className="text-sm font-medium">
             {day.date.toLocaleDateString(locale, {
@@ -157,20 +204,33 @@ function BudgetDayButton({
               ${formatMoney(actual ?? 0, currency)}
             </span>
           </div>
-          {hasPlannedItems && (
-            <div className="flex flex-col gap-1.5 border-t pt-2">
-              {dayItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between gap-2 text-xs"
-                >
-                  <span className="text-muted-foreground truncate">
-                    {item.description || item.categoryName}
+          {hasCategoryDetail && (
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 gap-y-1 border-t pt-2 text-[11px]">
+              <span />
+              <span className="text-muted-foreground text-right font-medium">
+                {labels.planned}
+              </span>
+              <span className="text-muted-foreground text-right font-medium">
+                {labels.actual}
+              </span>
+              {categoryOrder.map((category) => (
+                <Fragment key={category}>
+                  <span className="truncate">{category}</span>
+                  <span className="text-right font-medium">
+                    {plannedByCategory.has(category) ? (
+                      `$${formatMoney(plannedByCategory.get(category)!, currency)}`
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </span>
-                  <span className="shrink-0 font-medium">
-                    ${formatMoney(item.amount, currency)}
+                  <span className="text-right font-medium">
+                    {actualByCategory.has(category) ? (
+                      `$${formatMoney(actualByCategory.get(category)!, currency)}`
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </span>
-                </div>
+                </Fragment>
               ))}
             </div>
           )}
@@ -248,6 +308,15 @@ export function Budgets() {
     }
     return { dailyTotals: totals, itemsByDay: byDay }
   }, [items])
+
+  const plannedCategoriesByDay = useMemo(
+    () => aggregateByDayAndCategory(items),
+    [items]
+  )
+  const actualCategoriesByDay = useMemo(
+    () => aggregateByDayAndCategory(dailyActuals),
+    [dailyActuals]
+  )
 
   const todayItems = isCurrentMonth ? (itemsByDay.get(todayKey) ?? []) : []
   const todayPlannedTotal = isCurrentMonth
@@ -526,7 +595,8 @@ export function Budgets() {
                         {...props}
                         totals={dailyTotals}
                         actuals={actualByDay}
-                        itemsByDay={itemsByDay}
+                        plannedCategories={plannedCategoriesByDay}
+                        actualCategories={actualCategoriesByDay}
                         currency={currency}
                         locale={locale}
                         labels={{

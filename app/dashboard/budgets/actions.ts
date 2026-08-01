@@ -364,12 +364,13 @@ export async function getBudgetDailyActuals(month: number, year: number) {
       type: 'expense',
       date: monthRange(month, year),
     },
-    select: { date: true, amount: true },
+    select: { date: true, amount: true, category: { select: { name: true } } },
   })
 
   return expenses.map((expense) => ({
     date: expense.date,
     amount: Number(expense.amount),
+    categoryName: expense.category.name,
   }))
 }
 

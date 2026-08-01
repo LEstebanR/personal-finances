@@ -5,6 +5,7 @@ import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
 import { useDebts } from '@/lib/queries'
 import { CreditCard, Landmark, PlusIcon, Wallet } from 'lucide-react'
+import Link from 'next/link'
 import { useState } from 'react'
 import { Cell, Pie, PieChart } from 'recharts'
 
@@ -103,7 +104,7 @@ export function Debts() {
     return (
       <div className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
         <div className="mb-3 flex min-h-14 items-start justify-between gap-2">
-          <div className="min-w-0">
+          <Link href={`?debt&id=${debt.id}`} className="block min-w-0">
             <h3 className="truncate text-base font-bold text-gray-900">
               {debt.name}
             </h3>
@@ -113,7 +114,7 @@ export function Debts() {
                 {t('debts.creditCard')}
               </Badge>
             )}
-          </div>
+          </Link>
           <Button
             size="sm"
             variant="outline"
@@ -123,66 +124,68 @@ export function Debts() {
           </Button>
         </div>
 
-        <div className="mb-3">
-          <p className="mb-0.5 text-xs text-gray-500">
-            {t('debts.remainingBalance')}
-          </p>
-          <p
-            className={`text-xl font-bold ${isPaidOff ? 'text-green-600' : 'text-gray-900'}`}
-          >
-            ${formatMoney(debt.remainingBalance, currency)}
-          </p>
-        </div>
-
-        <div className="mb-3">
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
-            <div
-              className={`h-full rounded-full ${isPaidOff ? 'bg-green-500' : 'bg-primary'}`}
-              style={{ width: `${percentPaid}%` }}
-            />
+        <Link href={`?debt&id=${debt.id}`} className="block">
+          <div className="mb-3">
+            <p className="mb-0.5 text-xs text-gray-500">
+              {t('debts.remainingBalance')}
+            </p>
+            <p
+              className={`text-xl font-bold ${isPaidOff ? 'text-green-600' : 'text-gray-900'}`}
+            >
+              ${formatMoney(debt.remainingBalance, currency)}
+            </p>
           </div>
-          <p className="mt-1 text-xs text-gray-500">
-            {isCreditCard && typeof debt.creditLimit === 'number'
-              ? t('debts.usedOfLimit', {
-                  used: formatMoney(debt.remainingBalance, currency),
-                  limit: formatMoney(debt.creditLimit, currency),
-                })
-              : t('debts.paidOfTotal', {
-                  paid: formatMoney(paid, currency),
-                  total: formatMoney(debt.originalAmount, currency),
-                })}
-          </p>
-        </div>
 
-        {typeof debt.creditLimit === 'number' && (
-          <p className="mb-2 text-xs text-gray-500">
-            {t('debts.availableCredit')}: $
-            {formatMoney(
-              Math.max(0, debt.creditLimit - debt.remainingBalance),
-              currency
-            )}{' '}
-            {t('debts.ofLimit', {
-              limit: formatMoney(debt.creditLimit, currency),
-            })}
-          </p>
-        )}
-
-        {(typeof debt.minimumPayment === 'number' ||
-          typeof debt.paymentDueDay === 'number') && (
-          <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
-            {typeof debt.minimumPayment === 'number' && (
-              <span>
-                {t('debts.minimumPayment')}: $
-                {formatMoney(debt.minimumPayment, currency)}
-              </span>
-            )}
-            {typeof debt.paymentDueDay === 'number' && (
-              <span>
-                {t('debts.dueOnDay', { day: String(debt.paymentDueDay) })}
-              </span>
-            )}
+          <div className="mb-3">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+              <div
+                className={`h-full rounded-full ${isPaidOff ? 'bg-green-500' : 'bg-primary'}`}
+                style={{ width: `${percentPaid}%` }}
+              />
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              {isCreditCard && typeof debt.creditLimit === 'number'
+                ? t('debts.usedOfLimit', {
+                    used: formatMoney(debt.remainingBalance, currency),
+                    limit: formatMoney(debt.creditLimit, currency),
+                  })
+                : t('debts.paidOfTotal', {
+                    paid: formatMoney(paid, currency),
+                    total: formatMoney(debt.originalAmount, currency),
+                  })}
+            </p>
           </div>
-        )}
+
+          {typeof debt.creditLimit === 'number' && (
+            <p className="mb-2 text-xs text-gray-500">
+              {t('debts.availableCredit')}: $
+              {formatMoney(
+                Math.max(0, debt.creditLimit - debt.remainingBalance),
+                currency
+              )}{' '}
+              {t('debts.ofLimit', {
+                limit: formatMoney(debt.creditLimit, currency),
+              })}
+            </p>
+          )}
+
+          {(typeof debt.minimumPayment === 'number' ||
+            typeof debt.paymentDueDay === 'number') && (
+            <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+              {typeof debt.minimumPayment === 'number' && (
+                <span>
+                  {t('debts.minimumPayment')}: $
+                  {formatMoney(debt.minimumPayment, currency)}
+                </span>
+              )}
+              {typeof debt.paymentDueDay === 'number' && (
+                <span>
+                  {t('debts.dueOnDay', { day: String(debt.paymentDueDay) })}
+                </span>
+              )}
+            </div>
+          )}
+        </Link>
 
         {!isPaidOff && (
           <div className="mt-auto pt-1">

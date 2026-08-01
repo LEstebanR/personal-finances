@@ -13,7 +13,11 @@ import {
   getCategories,
   getSubcategories,
 } from '@/app/dashboard/categories/actions'
-import { getDebts } from '@/app/dashboard/debts/actions'
+import {
+  getDebtInterestCharges,
+  getDebtPayments,
+  getDebts,
+} from '@/app/dashboard/debts/actions'
 import { getOverviewData } from '@/app/dashboard/overview/actions'
 import { getProfile } from '@/app/dashboard/profile/actions'
 import { getCategoryMonthlyTotals } from '@/app/dashboard/spending-trends/actions'
@@ -27,6 +31,9 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 export const queryKeys = {
   accounts: ['accounts'] as const,
   debts: ['debts'] as const,
+  debtPayments: (debtId: string) => ['debt-payments', debtId] as const,
+  debtInterestCharges: (debtId: string) =>
+    ['debt-interest-charges', debtId] as const,
   subscriptions: ['subscriptions'] as const,
   categories: (type?: 'income' | 'expense') => ['categories', type] as const,
   subcategories: (categoryId: string) => ['subcategories', categoryId] as const,
@@ -54,6 +61,22 @@ export function useAccounts() {
 
 export function useDebts() {
   return useQuery({ queryKey: queryKeys.debts, queryFn: getDebts })
+}
+
+export function useDebtPayments(debtId: string) {
+  return useQuery({
+    queryKey: queryKeys.debtPayments(debtId),
+    queryFn: () => getDebtPayments(debtId),
+    enabled: !!debtId,
+  })
+}
+
+export function useDebtInterestCharges(debtId: string) {
+  return useQuery({
+    queryKey: queryKeys.debtInterestCharges(debtId),
+    queryFn: () => getDebtInterestCharges(debtId),
+    enabled: !!debtId,
+  })
 }
 
 export function useSubscriptions() {
