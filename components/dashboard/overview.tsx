@@ -612,14 +612,14 @@ export function Overview() {
                     content={
                       <ChartTooltipContent
                         labelFormatter={(day) =>
-                          t('overview.cashFlowDay', { day: String(day) })
+                          t('overview.cashFlowDayThrough', { day: String(day) })
                         }
                         formatter={(value, name) => (
                           <div className="flex w-full items-center justify-between gap-4">
                             <span className="text-muted-foreground">
                               {name === 'planned'
-                                ? t('overview.cashFlowPlanned')
-                                : t('overview.cashFlowActual')}
+                                ? t('overview.cashFlowPlannedCumulative')
+                                : t('overview.cashFlowActualCumulative')}
                             </span>
                             <span className="font-medium">
                               ${formatMoney(Number(value), currency)}

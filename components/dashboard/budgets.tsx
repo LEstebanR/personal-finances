@@ -104,13 +104,6 @@ const MONTH_KEYS = [
   'december',
 ] as const
 
-interface DayBudgetItem {
-  id: string
-  description: string
-  categoryName: string
-  amount: number
-}
-
 function BudgetDayButton({
   totals,
   actuals,
@@ -291,22 +284,13 @@ export function Budgets() {
   // day for negative UTC-offset timezones.
   const todayKey = localDateKey(now)
 
-  const { dailyTotals, itemsByDay } = useMemo(() => {
+  const dailyTotals = useMemo(() => {
     const totals = new Map<string, number>()
-    const byDay = new Map<string, DayBudgetItem[]>()
     for (const item of items) {
       const key = dbDateKey(item.date)
       totals.set(key, (totals.get(key) ?? 0) + item.amount)
-      const dayItems = byDay.get(key) ?? []
-      dayItems.push({
-        id: item.id,
-        description: item.description,
-        categoryName: item.categoryName,
-        amount: item.amount,
-      })
-      byDay.set(key, dayItems)
     }
-    return { dailyTotals: totals, itemsByDay: byDay }
+    return totals
   }, [items])
 
   const plannedCategoriesByDay = useMemo(
@@ -318,7 +302,9 @@ export function Budgets() {
     [dailyActuals]
   )
 
-  const todayItems = isCurrentMonth ? (itemsByDay.get(todayKey) ?? []) : []
+  const todayCategories = isCurrentMonth
+    ? (plannedCategoriesByDay.get(todayKey) ?? [])
+    : []
   const todayPlannedTotal = isCurrentMonth
     ? (dailyTotals.get(todayKey) ?? 0)
     : 0
@@ -639,21 +625,21 @@ export function Budgets() {
                         </span>
                       </div>
                       <div className="flex flex-col gap-1.5 border-t pt-3">
-                        {todayItems.length === 0 ? (
+                        {todayCategories.length === 0 ? (
                           <p className="text-muted-foreground text-xs">
                             {t('budgets.noItemsToday')}
                           </p>
                         ) : (
-                          todayItems.map((item) => (
+                          todayCategories.map((entry) => (
                             <div
-                              key={item.id}
+                              key={entry.category}
                               className="flex items-center justify-between gap-2 text-xs"
                             >
                               <span className="text-muted-foreground truncate">
-                                {item.description || item.categoryName}
+                                {entry.category}
                               </span>
                               <span className="shrink-0 font-medium">
-                                ${formatMoney(item.amount, currency)}
+                                ${formatMoney(entry.amount, currency)}
                               </span>
                             </div>
                           ))
