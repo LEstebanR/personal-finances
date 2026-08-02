@@ -159,15 +159,16 @@ export function Overview() {
 
   const monthEndShortfall = getRemainingPlannedExpenses() - availableBalance
 
+  // Transaction dates are stored as UTC-midnight date-only values, so
+  // filtering by the local getMonth()/getFullYear() can shift a date near
+  // the start of the month into the previous local month for timezones
+  // behind UTC. Compare in UTC instead, matching cashFlowData below.
   const getMonthlyStats = () => {
-    const currentMonth = new Date().getMonth()
-    const currentYear = new Date().getFullYear()
-
     const monthlyTransactions = transactions.filter((transaction) => {
       const transactionDate = new Date(transaction.date)
       return (
-        transactionDate.getMonth() === currentMonth &&
-        transactionDate.getFullYear() === currentYear
+        transactionDate.getUTCFullYear() === currentYear &&
+        transactionDate.getUTCMonth() + 1 === currentMonth
       )
     })
 
@@ -185,15 +186,12 @@ export function Overview() {
   const monthlyStats = getMonthlyStats()
 
   const getCategoryBreakdown = () => {
-    const currentMonth = new Date().getMonth()
-    const currentYear = new Date().getFullYear()
-
     const monthlyExpenses = transactions.filter((transaction) => {
       const transactionDate = new Date(transaction.date)
       return (
         transaction.type === 'expense' &&
-        transactionDate.getMonth() === currentMonth &&
-        transactionDate.getFullYear() === currentYear
+        transactionDate.getUTCFullYear() === currentYear &&
+        transactionDate.getUTCMonth() + 1 === currentMonth
       )
     })
 
@@ -275,7 +273,8 @@ export function Overview() {
   )
 
   const budgetedItems = budgetItems.filter(
-    (item) => item.amount !== null || item.suggestedAmount !== null
+    (item) =>
+      item.amount !== null || item.suggestedAmount !== null || item.spent > 0
   )
   const totalBudgeted = budgetedItems.reduce(
     (sum, item) => sum + (item.amount ?? item.suggestedAmount ?? 0),
@@ -613,14 +612,14 @@ export function Overview() {
                     content={
                       <ChartTooltipContent
                         labelFormatter={(day) =>
-                          t('overview.cashFlowDay', { day: String(day) })
+                          t('overview.cashFlowDayThrough', { day: String(day) })
                         }
                         formatter={(value, name) => (
                           <div className="flex w-full items-center justify-between gap-4">
                             <span className="text-muted-foreground">
                               {name === 'planned'
-                                ? t('overview.cashFlowPlanned')
-                                : t('overview.cashFlowActual')}
+                                ? t('overview.cashFlowPlannedCumulative')
+                                : t('overview.cashFlowActualCumulative')}
                             </span>
                             <span className="font-medium">
                               ${formatMoney(Number(value), currency)}

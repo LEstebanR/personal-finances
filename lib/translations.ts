@@ -289,6 +289,9 @@ export const translations = {
       cashFlowPlanned: 'Planned',
       cashFlowActual: 'Actual',
       cashFlowDay: 'Day {day}',
+      cashFlowPlannedCumulative: 'Cumulative planned',
+      cashFlowActualCumulative: 'Cumulative spent',
+      cashFlowDayThrough: 'Through day {day}',
     },
     accounts: {
       title: 'Accounts',
@@ -961,6 +964,9 @@ export const translations = {
       cashFlowPlanned: 'Planeado',
       cashFlowActual: 'Real',
       cashFlowDay: 'Día {day}',
+      cashFlowPlannedCumulative: 'Planeado acumulado',
+      cashFlowActualCumulative: 'Gasto acumulado',
+      cashFlowDayThrough: 'Hasta el día {day}',
     },
     accounts: {
       title: 'Cuentas',
