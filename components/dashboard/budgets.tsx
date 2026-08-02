@@ -104,11 +104,95 @@ const MONTH_KEYS = [
   'december',
 ] as const
 
-interface DayBudgetItem {
-  id: string
-  description: string
-  categoryName: string
-  amount: number
+interface DayBudgetDetailProps {
+  date: Date
+  locale: string
+  currency: string
+  labels: { planned: string; actual: string }
+  plannedTotal?: number
+  actualTotal?: number
+  plannedCategories: CategoryAmount[]
+  actualCategories: CategoryAmount[]
+}
+
+function DayBudgetDetail({
+  date,
+  locale,
+  currency,
+  labels,
+  plannedTotal,
+  actualTotal,
+  plannedCategories,
+  actualCategories,
+}: DayBudgetDetailProps) {
+  const hasCategoryDetail =
+    plannedCategories.length > 0 || actualCategories.length > 0
+
+  const plannedByCategory = new Map(
+    plannedCategories.map((entry) => [entry.category, entry.amount])
+  )
+  const actualByCategory = new Map(
+    actualCategories.map((entry) => [entry.category, entry.amount])
+  )
+  const categoryOrder = [
+    ...plannedCategories.map((entry) => entry.category),
+    ...actualCategories
+      .map((entry) => entry.category)
+      .filter((category) => !plannedByCategory.has(category)),
+  ]
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm font-medium">
+        {date.toLocaleDateString(locale, {
+          day: '2-digit',
+          month: 'long',
+        })}
+      </p>
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="text-muted-foreground">{labels.planned}</span>
+        <span className="text-primary font-semibold">
+          ${formatMoney(plannedTotal ?? 0, currency)}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <span className="text-muted-foreground">{labels.actual}</span>
+        <span className="font-semibold text-amber-600 dark:text-amber-500">
+          ${formatMoney(actualTotal ?? 0, currency)}
+        </span>
+      </div>
+      {hasCategoryDetail && (
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 gap-y-1 border-t pt-2 text-[11px]">
+          <span />
+          <span className="text-muted-foreground text-right font-medium">
+            {labels.planned}
+          </span>
+          <span className="text-muted-foreground text-right font-medium">
+            {labels.actual}
+          </span>
+          {categoryOrder.map((category) => (
+            <Fragment key={category}>
+              <span className="truncate">{category}</span>
+              <span className="text-right font-medium">
+                {plannedByCategory.has(category) ? (
+                  `$${formatMoney(plannedByCategory.get(category)!, currency)}`
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </span>
+              <span className="text-right font-medium">
+                {actualByCategory.has(category) ? (
+                  `$${formatMoney(actualByCategory.get(category)!, currency)}`
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </span>
+            </Fragment>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function BudgetDayButton({
@@ -168,73 +252,20 @@ function BudgetDayButton({
   const hasCategoryDetail = plannedCats.length > 0 || actualCats.length > 0
   if (!hasCategoryDetail && !actual) return button
 
-  const plannedByCategory = new Map(
-    plannedCats.map((entry) => [entry.category, entry.amount])
-  )
-  const actualByCategory = new Map(
-    actualCats.map((entry) => [entry.category, entry.amount])
-  )
-  const categoryOrder = [
-    ...plannedCats.map((entry) => entry.category),
-    ...actualCats
-      .map((entry) => entry.category)
-      .filter((category) => !plannedByCategory.has(category)),
-  ]
-
   return (
     <HoverCard openDelay={150}>
       <HoverCardTrigger asChild>{button}</HoverCardTrigger>
       <HoverCardContent className="w-auto min-w-64">
-        <div className="flex flex-col gap-2">
-          <p className="text-sm font-medium">
-            {day.date.toLocaleDateString(locale, {
-              day: '2-digit',
-              month: 'long',
-            })}
-          </p>
-          <div className="flex items-center justify-between gap-2 text-xs">
-            <span className="text-muted-foreground">{labels.planned}</span>
-            <span className="text-primary font-semibold">
-              ${formatMoney(total ?? 0, currency)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-2 text-xs">
-            <span className="text-muted-foreground">{labels.actual}</span>
-            <span className="font-semibold text-amber-600 dark:text-amber-500">
-              ${formatMoney(actual ?? 0, currency)}
-            </span>
-          </div>
-          {hasCategoryDetail && (
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-3 gap-y-1 border-t pt-2 text-[11px]">
-              <span />
-              <span className="text-muted-foreground text-right font-medium">
-                {labels.planned}
-              </span>
-              <span className="text-muted-foreground text-right font-medium">
-                {labels.actual}
-              </span>
-              {categoryOrder.map((category) => (
-                <Fragment key={category}>
-                  <span className="truncate">{category}</span>
-                  <span className="text-right font-medium">
-                    {plannedByCategory.has(category) ? (
-                      `$${formatMoney(plannedByCategory.get(category)!, currency)}`
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </span>
-                  <span className="text-right font-medium">
-                    {actualByCategory.has(category) ? (
-                      `$${formatMoney(actualByCategory.get(category)!, currency)}`
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </span>
-                </Fragment>
-              ))}
-            </div>
-          )}
-        </div>
+        <DayBudgetDetail
+          date={day.date}
+          locale={locale}
+          currency={currency}
+          labels={labels}
+          plannedTotal={total}
+          actualTotal={actual}
+          plannedCategories={plannedCats}
+          actualCategories={actualCats}
+        />
       </HoverCardContent>
     </HoverCard>
   )
@@ -291,22 +322,13 @@ export function Budgets() {
   // day for negative UTC-offset timezones.
   const todayKey = localDateKey(now)
 
-  const { dailyTotals, itemsByDay } = useMemo(() => {
+  const dailyTotals = useMemo(() => {
     const totals = new Map<string, number>()
-    const byDay = new Map<string, DayBudgetItem[]>()
     for (const item of items) {
       const key = dbDateKey(item.date)
       totals.set(key, (totals.get(key) ?? 0) + item.amount)
-      const dayItems = byDay.get(key) ?? []
-      dayItems.push({
-        id: item.id,
-        description: item.description,
-        categoryName: item.categoryName,
-        amount: item.amount,
-      })
-      byDay.set(key, dayItems)
     }
-    return { dailyTotals: totals, itemsByDay: byDay }
+    return totals
   }, [items])
 
   const plannedCategoriesByDay = useMemo(
@@ -318,7 +340,6 @@ export function Budgets() {
     [dailyActuals]
   )
 
-  const todayItems = isCurrentMonth ? (itemsByDay.get(todayKey) ?? []) : []
   const todayPlannedTotal = isCurrentMonth
     ? (dailyTotals.get(todayKey) ?? 0)
     : 0
@@ -621,44 +642,24 @@ export function Budgets() {
                         })}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="flex flex-col gap-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          {t('overview.cashFlowPlanned')}
-                        </span>
-                        <span className="text-primary font-semibold">
-                          ${formatMoney(todayPlannedTotal, currency)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">
-                          {t('overview.cashFlowActual')}
-                        </span>
-                        <span className="font-semibold text-amber-600 dark:text-amber-500">
-                          ${formatMoney(todayActualTotal, currency)}
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-1.5 border-t pt-3">
-                        {todayItems.length === 0 ? (
-                          <p className="text-muted-foreground text-xs">
-                            {t('budgets.noItemsToday')}
-                          </p>
-                        ) : (
-                          todayItems.map((item) => (
-                            <div
-                              key={item.id}
-                              className="flex items-center justify-between gap-2 text-xs"
-                            >
-                              <span className="text-muted-foreground truncate">
-                                {item.description || item.categoryName}
-                              </span>
-                              <span className="shrink-0 font-medium">
-                                ${formatMoney(item.amount, currency)}
-                              </span>
-                            </div>
-                          ))
-                        )}
-                      </div>
+                    <CardContent>
+                      <DayBudgetDetail
+                        date={now}
+                        locale={locale}
+                        currency={currency}
+                        labels={{
+                          planned: t('overview.cashFlowPlanned'),
+                          actual: t('overview.cashFlowActual'),
+                        }}
+                        plannedTotal={todayPlannedTotal}
+                        actualTotal={todayActualTotal}
+                        plannedCategories={
+                          plannedCategoriesByDay.get(todayKey) ?? []
+                        }
+                        actualCategories={
+                          actualCategoriesByDay.get(todayKey) ?? []
+                        }
+                      />
                     </CardContent>
                   </Card>
                 </div>
