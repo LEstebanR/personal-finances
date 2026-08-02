@@ -168,7 +168,11 @@ export function PaySubscriptionDialog({
                 value={sourceType === 'debt' ? sourceId : ''}
               />
             </div>
-            <CurrencyField name="amount" label={t('transactions.amount')} />
+            <CurrencyField
+              name="amount"
+              label={t('transactions.amount')}
+              defaultValue={String(subscription.amount)}
+            />
             <div className="flex flex-col gap-1">
               <Label>{t('transactions.date')}</Label>
               <DatePicker name="date" />
