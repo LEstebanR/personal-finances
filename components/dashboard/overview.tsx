@@ -143,24 +143,54 @@ export function Overview() {
     .filter((account) => account.type === 'cash' || account.type === 'savings')
     .reduce((total, account) => total + (account.currentBalance || 0), 0)
 
-  // Sum of this month's planned expenses still ahead (today included),
-  // vs. what's currently sitting in cash/savings. Positive means the
-  // planned expenses outrun what's on hand; negative means there's a
-  // surplus for the rest of the month.
-  //
-  // todayUtcMidnight must come from LOCAL getters on `today`, not UTC ones:
-  // taking the UTC calendar day of a local instant shifts the boundary by
-  // the timezone offset (e.g. for UTC-5, anytime after 7pm local is already
-  // "tomorrow" in UTC), so the cutoff drifted by a day depending on the time
-  // of day the page was loaded instead of matching the user's actual today.
+  // Per-day planned vs. already-spent totals for the current month. A
+  // planned item that's already been paid (a real expense Transaction
+  // recorded against that same day) shouldn't also count as "still
+  // needed" below — that money already left the account balance we're
+  // comparing against, so counting the plan on top of it double-charges
+  // the same expense. Keyed with UTC getters, matching how these dates
+  // are stored (date-only, UTC midnight).
+  const plannedByDayThisMonth = useMemo(() => {
+    const map = new Map<number, number>()
+    for (const item of monthBudgetItems) {
+      const day = new Date(item.date).getUTCDate()
+      map.set(day, (map.get(day) ?? 0) + item.amount)
+    }
+    return map
+  }, [monthBudgetItems])
+
+  const actualByDayThisMonth = useMemo(() => {
+    const map = new Map<number, number>()
+    for (const transaction of transactions) {
+      if (transaction.type !== 'expense') continue
+      const date = new Date(transaction.date)
+      if (
+        date.getUTCFullYear() !== currentYear ||
+        date.getUTCMonth() + 1 !== currentMonth
+      )
+        continue
+      const day = date.getUTCDate()
+      map.set(day, (map.get(day) ?? 0) + transaction.amount)
+    }
+    return map
+  }, [transactions, currentYear, currentMonth])
+
+  // Sum of this month's planned expenses still ahead (today included) that
+  // haven't already been paid, vs. what's currently sitting in cash/savings.
+  // Positive means the remaining plan outruns what's on hand; negative
+  // means there's a surplus for the rest of the month.
   const getRemainingPlannedExpenses = () => {
     const today = new Date()
-    const todayUtcMidnight = new Date(
-      Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
-    )
-    return monthBudgetItems
-      .filter((item) => new Date(item.date) >= todayUtcMidnight)
-      .reduce((sum, item) => sum + item.amount, 0)
+    const daysInMonth = new Date(
+      Date.UTC(currentYear, currentMonth, 0)
+    ).getUTCDate()
+    let total = 0
+    for (let day = today.getDate(); day <= daysInMonth; day++) {
+      const planned = plannedByDayThisMonth.get(day) ?? 0
+      const actual = actualByDayThisMonth.get(day) ?? 0
+      total += Math.max(0, planned - actual)
+    }
+    return total
   }
 
   const monthEndShortfall = getRemainingPlannedExpenses() - availableBalance
@@ -171,18 +201,9 @@ export function Overview() {
   // tomorrow (not today) — without this, the two numbers don't reconcile.
   const getTodayPlannedExpenses = () => {
     const today = new Date()
-    const todayUtcMidnight = new Date(
-      Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
-    )
-    const tomorrowUtcMidnight = new Date(
-      Date.UTC(today.getFullYear(), today.getMonth(), today.getDate() + 1)
-    )
-    return monthBudgetItems
-      .filter((item) => {
-        const date = new Date(item.date)
-        return date >= todayUtcMidnight && date < tomorrowUtcMidnight
-      })
-      .reduce((sum, item) => sum + item.amount, 0)
+    const planned = plannedByDayThisMonth.get(today.getDate()) ?? 0
+    const actual = actualByDayThisMonth.get(today.getDate()) ?? 0
+    return Math.max(0, planned - actual)
   }
 
   const todayPlannedExpenses = getTodayPlannedExpenses()
