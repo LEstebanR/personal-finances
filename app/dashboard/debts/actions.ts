@@ -54,10 +54,20 @@ export async function getDebts() {
   const plan = await getUserPlan(session.user.id)
   await reconcileDebtLocks(session.user.id, plan)
 
-  const debts = await prisma.debt.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: 'desc' },
-  })
+  const [debts, paidByDebt] = await Promise.all([
+    prisma.debt.findMany({
+      where: { userId: session.user.id },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.debtPayment.groupBy({
+      by: ['debtId'],
+      where: { userId: session.user.id },
+      _sum: { amount: true },
+    }),
+  ])
+  const totalPaidByDebtId = new Map(
+    paidByDebt.map((row) => [row.debtId, Number(row._sum.amount ?? 0)])
+  )
 
   return debts.map((debt) => ({
     ...debt,
@@ -66,6 +76,11 @@ export async function getDebts() {
     minimumPayment:
       debt.minimumPayment === null ? null : Number(debt.minimumPayment),
     creditLimit: debt.creditLimit === null ? null : Number(debt.creditLimit),
+    // Real cumulative principal payments, distinct from remainingBalance
+    // (which also moves with interest charges and credit-card purchases) —
+    // used for the "amount paid" progress display so interest can't make it
+    // look like it was paid off.
+    totalPaid: totalPaidByDebtId.get(debt.id) ?? 0,
   }))
 }
 

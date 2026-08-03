@@ -46,6 +46,7 @@ interface Debt {
   minimumPayment: number | null
   paymentDueDay: number | null
   creditLimit: number | null
+  totalPaid: number
   createdAt: Date
 }
 
@@ -87,7 +88,10 @@ export function Debts() {
 
   const DebtCard = ({ debt }: { debt: Debt }) => {
     const isCreditCard = debt.type === 'credit_card'
-    const paid = debt.originalAmount - debt.remainingBalance
+    // Real cumulative payments, not originalAmount - remainingBalance —
+    // interest charges and credit-card purchases also move remainingBalance,
+    // so that difference isn't the same as what's actually been paid.
+    const paid = debt.totalPaid
     const percentPaid =
       isCreditCard && typeof debt.creditLimit === 'number'
         ? debt.creditLimit > 0
