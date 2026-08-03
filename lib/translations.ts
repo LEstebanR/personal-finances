@@ -616,6 +616,9 @@ export const translations = {
         'No planned expenses yet. Add one for a specific day to start building this month’s budget.',
       today: 'Today',
       noItemsToday: 'No planned expenses for today.',
+      remainingMonthTitle: 'Remaining This Month',
+      remainingMonthDesc:
+        'Planned expenses from tomorrow through the end of the month',
       occasionalExpenses: 'Occasional Expenses',
       recurringExpenses: 'Recurring Expenses',
       byCategory: 'Budget by Category',
@@ -1276,6 +1279,8 @@ export const translations = {
         'Todavía no hay gastos planeados. Agregar uno para un día específico para empezar a armar el presupuesto de este mes.',
       today: 'Hoy',
       noItemsToday: 'No hay gastos planeados para hoy.',
+      remainingMonthTitle: 'Resto del Mes',
+      remainingMonthDesc: 'Gastos planeados desde mañana hasta el fin de mes',
       occasionalExpenses: 'Gastos Ocasionales',
       recurringExpenses: 'Gastos Recurrentes',
       byCategory: 'Presupuesto por Categoría',

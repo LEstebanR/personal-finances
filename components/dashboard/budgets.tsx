@@ -345,6 +345,19 @@ export function Budgets() {
     : 0
   const todayActualTotal = isCurrentMonth ? (actualByDay.get(todayKey) ?? 0) : 0
 
+  // Sum of planned expenses strictly after today (tomorrow through the end
+  // of the viewed month). Built from local calendar getters on `now`, same
+  // as todayKey above, so it lines up with the "intended" calendar day
+  // rather than shifting with the server/browser's UTC offset.
+  const tomorrowUtcMidnight = new Date(
+    Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  )
+  const remainingMonthPlannedTotal = isCurrentMonth
+    ? items
+        .filter((item) => new Date(item.date) >= tomorrowUtcMidnight)
+        .reduce((sum, item) => sum + item.amount, 0)
+    : 0
+
   const goToPreviousMonth = () => {
     setOccasionalPage(1)
     setRecurringPage(1)
@@ -631,7 +644,7 @@ export function Budgets() {
               </div>
 
               {isCurrentMonth && (
-                <div className="md:flex-1">
+                <div className="flex flex-col gap-4 md:flex-1">
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium capitalize">
@@ -660,6 +673,22 @@ export function Budgets() {
                           actualCategoriesByDay.get(todayKey) ?? []
                         }
                       />
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        {t('budgets.remainingMonthTitle')}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-primary text-2xl font-bold">
+                        ${formatMoney(remainingMonthPlannedTotal, currency)}
+                      </div>
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        {t('budgets.remainingMonthDesc')}
+                      </p>
                     </CardContent>
                   </Card>
                 </div>
