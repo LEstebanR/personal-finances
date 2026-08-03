@@ -147,10 +147,16 @@ export function Overview() {
   // vs. what's currently sitting in cash/savings. Positive means the
   // planned expenses outrun what's on hand; negative means there's a
   // surplus for the rest of the month.
+  //
+  // todayUtcMidnight must come from LOCAL getters on `today`, not UTC ones:
+  // taking the UTC calendar day of a local instant shifts the boundary by
+  // the timezone offset (e.g. for UTC-5, anytime after 7pm local is already
+  // "tomorrow" in UTC), so the cutoff drifted by a day depending on the time
+  // of day the page was loaded instead of matching the user's actual today.
   const getRemainingPlannedExpenses = () => {
     const today = new Date()
     const todayUtcMidnight = new Date(
-      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+      Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
     )
     return monthBudgetItems
       .filter((item) => new Date(item.date) >= todayUtcMidnight)
