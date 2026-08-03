@@ -165,6 +165,28 @@ export function Overview() {
 
   const monthEndShortfall = getRemainingPlannedExpenses() - availableBalance
 
+  // Broken out separately so the projection card can show it: it's the one
+  // piece of "remaining" spend that isn't visible anywhere else, since the
+  // Budget view's own "remaining this month" total deliberately starts
+  // tomorrow (not today) — without this, the two numbers don't reconcile.
+  const getTodayPlannedExpenses = () => {
+    const today = new Date()
+    const todayUtcMidnight = new Date(
+      Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())
+    )
+    const tomorrowUtcMidnight = new Date(
+      Date.UTC(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+    )
+    return monthBudgetItems
+      .filter((item) => {
+        const date = new Date(item.date)
+        return date >= todayUtcMidnight && date < tomorrowUtcMidnight
+      })
+      .reduce((sum, item) => sum + item.amount, 0)
+  }
+
+  const todayPlannedExpenses = getTodayPlannedExpenses()
+
   // Transaction dates are stored as UTC-midnight date-only values, so
   // filtering by the local getMonth()/getFullYear() can shift a date near
   // the start of the month into the previous local month for timezones
@@ -403,6 +425,13 @@ export function Overview() {
                   ? t('overview.monthEndShortfall')
                   : t('overview.monthEndSurplus')}
               </p>
+              {todayPlannedExpenses > 0 && (
+                <p className="text-muted-foreground mt-1 text-xs">
+                  {t('overview.monthEndIncludesToday', {
+                    amount: formatMoney(todayPlannedExpenses, currency),
+                  })}
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
