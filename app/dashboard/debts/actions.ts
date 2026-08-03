@@ -294,10 +294,20 @@ export async function createDebtPayment(formData: FormData) {
       where: { id: accountId },
       data: { currentBalance: { decrement: amount } },
     })
-    await tx.debt.update({
+    const updatedDebt = await tx.debt.update({
       where: { id: debtId },
       data: { remainingBalance: { decrement: amount } },
     })
+
+    // Fully paid off: drop this debt's not-yet-arrived planned budget items
+    // (the recurring minimum-payment line) so it stops showing up as a
+    // recurring expense. Past/current entries stay as the historical record
+    // of what was actually planned, same as when editing a debt's terms.
+    if (Number(updatedDebt.remainingBalance) <= 0) {
+      await tx.budgetItem.deleteMany({
+        where: { debtId, date: { gt: new Date() } },
+      })
+    }
 
     const category = await getOrCreateDebtCategory(tx, session.user.id)
     const transaction = await tx.transaction.create({
