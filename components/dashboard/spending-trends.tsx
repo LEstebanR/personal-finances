@@ -2,15 +2,15 @@
 
 import {
   getAvailableReportMonths,
+  getAvailableSpendingYears,
   getMonthlyFinancialReport,
 } from '@/app/dashboard/spending-trends/actions'
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
-import { FREE_LIMITS, monthsBack } from '@/lib/plan-limits-shared'
-import { useCategoryMonthlyTotals, useProfile } from '@/lib/queries'
-import { ChevronLeft, ChevronRight, Download, Table } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useCategoryMonthlyTotals } from '@/lib/queries'
+import { Download, Table } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '../ui/button'
 import {
@@ -40,20 +40,11 @@ const MONTH_KEYS = [
 
 const EMPTY_ARRAY: never[] = []
 
-function yearHasAllowedMonth(year: number) {
-  for (let month = 1; month <= 12; month++) {
-    const back = monthsBack(month, year)
-    if (back >= 0 && back < FREE_LIMITS.trendsMonths) return true
-  }
-  return false
-}
-
 export function SpendingTrends() {
   const currency = useCurrency()
   const { t } = useLanguage()
-  const { data: profile } = useProfile()
-  const isFreePlan = profile?.plan !== 'PRO'
   const [year, setYear] = useState(new Date().getFullYear())
+  const [availableYears, setAvailableYears] = useState<number[]>([])
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [reportOpen, setReportOpen] = useState(false)
   const [availableMonths, setAvailableMonths] = useState<number[]>([])
@@ -62,7 +53,17 @@ export function SpendingTrends() {
   const { data: rows = EMPTY_ARRAY, isLoading: loading } =
     useCategoryMonthlyTotals(year)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const previousYearBlocked = isFreePlan && !yearHasAllowedMonth(year - 1)
+
+  useEffect(() => {
+    getAvailableSpendingYears().then((years) => {
+      setAvailableYears(years)
+      setYear((currentYear) =>
+        years.length > 0 && !years.includes(currentYear)
+          ? years[0]
+          : currentYear
+      )
+    })
+  }, [])
 
   const openReportDialog = async () => {
     setReportOpen(true)
@@ -117,27 +118,22 @@ export function SpendingTrends() {
             <Download className="h-4 w-4" />
             {t('spendingTrends.exportReport')}
           </Button>
-          <Button
-            size="icon"
-            variant="outline"
-            onClick={() => setYear((y) => y - 1)}
-            disabled={previousYearBlocked}
-            title={
-              previousYearBlocked
-                ? t('spendingTrends.upgradeForHistory')
-                : undefined
-            }
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="min-w-16 text-center font-medium">{year}</span>
-          <Button
-            size="icon"
-            variant="outline"
-            onClick={() => setYear((y) => y + 1)}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          {availableYears.length > 0 ? (
+            <select
+              aria-label={t('spendingTrends.yearSelector')}
+              className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+              value={year}
+              onChange={(event) => setYear(Number(event.target.value))}
+            >
+              {availableYears.map((availableYear) => (
+                <option key={availableYear} value={availableYear}>
+                  {availableYear}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="text-muted-foreground text-sm">{year}</span>
+          )}
         </div>
       </div>
 

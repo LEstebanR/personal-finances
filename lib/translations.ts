@@ -646,6 +646,7 @@ export const translations = {
       noData: 'No expenses recorded for this year yet.',
       upgradeForHistory: 'Upgrade to Pro to see older spending trends',
       reportMonth: 'Report month',
+      yearSelector: 'Year with spending data',
       reportMonthDescription:
         'Choose a month with recorded movements in {year}.',
       noReportMonths: 'There are no recorded movements for this year.',
@@ -1317,6 +1318,7 @@ export const translations = {
       upgradeForHistory:
         'Actualizá a Pro para ver tendencias de gasto más antiguas',
       reportMonth: 'Mes del informe',
+      yearSelector: 'Año con datos de gastos',
       reportMonthDescription:
         'Elegí un mes con movimientos registrados en {year}.',
       noReportMonths: 'No hay movimientos registrados para este año.',

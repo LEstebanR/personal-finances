@@ -123,6 +123,22 @@ export async function getAvailableReportMonths(year: number) {
     .sort((a, b) => a - b)
 }
 
+export async function getAvailableSpendingYears() {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+  const plan = await getUserPlan(session.user.id)
+
+  const expenses = await prisma.transaction.findMany({
+    where: { userId: session.user.id, type: 'expense' },
+    select: { date: true },
+  })
+  return Array.from(
+    new Set(expenses.map((expense) => expense.date.getUTCFullYear()))
+  )
+    .filter((year) => isTrendsYearAllowed(year, plan))
+    .sort((a, b) => b - a)
+}
+
 export async function getMonthlyFinancialReport(year: number, month: number) {
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
@@ -241,6 +257,7 @@ export async function getMonthlyFinancialReport(year: number, month: number) {
       }
   const monthName = new Intl.DateTimeFormat(isSpanish ? 'es-CO' : 'en-US', {
     month: 'long',
+    timeZone: 'UTC',
   }).format(new Date(Date.UTC(year, month - 1, 1)))
   const amount = (value: number) => formatReportAmount(value, user.currency)
   const income = transactions
