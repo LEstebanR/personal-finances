@@ -645,6 +645,13 @@ export const translations = {
       total: 'Total',
       noData: 'No expenses recorded for this year yet.',
       upgradeForHistory: 'Upgrade to Pro to see older spending trends',
+      reportMonth: 'Report month',
+      reportMonthDescription:
+        'Choose a month with recorded movements in {year}.',
+      noReportMonths: 'There are no recorded movements for this year.',
+      exportReport: 'Export report',
+      downloadReport: 'Download Markdown',
+      exporting: 'Exporting...',
     },
     profile: {
       title: 'Profile settings',
@@ -1309,6 +1316,13 @@ export const translations = {
       noData: 'Todavía no hay gastos registrados para este año.',
       upgradeForHistory:
         'Actualizá a Pro para ver tendencias de gasto más antiguas',
+      reportMonth: 'Mes del informe',
+      reportMonthDescription:
+        'Elegí un mes con movimientos registrados en {year}.',
+      noReportMonths: 'No hay movimientos registrados para este año.',
+      exportReport: 'Exportar informe',
+      downloadReport: 'Descargar Markdown',
+      exporting: 'Exportando...',
     },
     settings: {
       language: 'Idioma',

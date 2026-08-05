@@ -1,14 +1,26 @@
 'use client'
 
+import {
+  getAvailableReportMonths,
+  getMonthlyFinancialReport,
+} from '@/app/dashboard/spending-trends/actions'
 import { useCurrency } from '@/components/currency-provider'
 import { useLanguage } from '@/components/language-provider'
 import { formatMoney } from '@/lib/currency'
 import { FREE_LIMITS, monthsBack } from '@/lib/plan-limits-shared'
 import { useCategoryMonthlyTotals, useProfile } from '@/lib/queries'
-import { ChevronLeft, ChevronRight, Table } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, Table } from 'lucide-react'
 import { useRef, useState } from 'react'
 
 import { Button } from '../ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog'
 import { Loader } from '../ui/loader'
 
 const MONTH_KEYS = [
@@ -42,10 +54,47 @@ export function SpendingTrends() {
   const { data: profile } = useProfile()
   const isFreePlan = profile?.plan !== 'PRO'
   const [year, setYear] = useState(new Date().getFullYear())
+  const [month, setMonth] = useState(new Date().getMonth() + 1)
+  const [reportOpen, setReportOpen] = useState(false)
+  const [availableMonths, setAvailableMonths] = useState<number[]>([])
+  const [loadingMonths, setLoadingMonths] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const { data: rows = EMPTY_ARRAY, isLoading: loading } =
     useCategoryMonthlyTotals(year)
   const scrollRef = useRef<HTMLDivElement>(null)
   const previousYearBlocked = isFreePlan && !yearHasAllowedMonth(year - 1)
+
+  const openReportDialog = async () => {
+    setReportOpen(true)
+    setLoadingMonths(true)
+    try {
+      const months = await getAvailableReportMonths(year)
+      setAvailableMonths(months)
+      setMonth((currentMonth) =>
+        months.includes(currentMonth)
+          ? currentMonth
+          : (months[0] ?? currentMonth)
+      )
+    } finally {
+      setLoadingMonths(false)
+    }
+  }
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const report = await getMonthlyFinancialReport(year, month)
+      const blob = new Blob([report], { type: 'text/markdown;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `informe-financiero-${year}-${String(month).padStart(2, '0')}.md`
+      link.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     const el = scrollRef.current
@@ -63,7 +112,11 @@ export function SpendingTrends() {
   return (
     <div className="flex w-full flex-col gap-6 rounded-md p-4 md:mt-4 md:w-11/12 md:p-8">
       <div className="flex w-full items-center justify-end">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button variant="outline" onClick={openReportDialog}>
+            <Download className="h-4 w-4" />
+            {t('spendingTrends.exportReport')}
+          </Button>
           <Button
             size="icon"
             variant="outline"
@@ -87,6 +140,50 @@ export function SpendingTrends() {
           </Button>
         </div>
       </div>
+
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('spendingTrends.reportMonth')}</DialogTitle>
+            <DialogDescription>
+              {t('spendingTrends.reportMonthDescription', { year })}
+            </DialogDescription>
+          </DialogHeader>
+          {loadingMonths ? (
+            <Loader className="m-auto" />
+          ) : availableMonths.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              {t('spendingTrends.noReportMonths')}
+            </p>
+          ) : (
+            <select
+              aria-label={t('spendingTrends.reportMonth')}
+              className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+              value={month}
+              onChange={(event) => setMonth(Number(event.target.value))}
+            >
+              {availableMonths.map((availableMonth) => (
+                <option key={availableMonth} value={availableMonth}>
+                  {t(`budgets.months.${MONTH_KEYS[availableMonth - 1]}`)}
+                </option>
+              ))}
+            </select>
+          )}
+          <DialogFooter>
+            <Button
+              onClick={handleExport}
+              disabled={
+                loadingMonths || exporting || availableMonths.length === 0
+              }
+            >
+              <Download className="h-4 w-4" />
+              {exporting
+                ? t('spendingTrends.exporting')
+                : t('spendingTrends.downloadReport')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {loading ? (
         <Loader className="m-auto" />
