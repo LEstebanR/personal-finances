@@ -4,6 +4,7 @@ import { useLanguage } from '@/components/language-provider'
 import { DashboardPreview } from '@/components/marketing/dashboard-preview'
 import {
   AccountsMock,
+  AssistantMock,
   BudgetMock,
   TransactionMock,
 } from '@/components/marketing/feature-mocks'
@@ -14,6 +15,7 @@ import { Footer } from '@/components/ui/footer'
 import { Header } from '@/components/ui/header'
 import {
   ArrowRight,
+  Bot,
   Check,
   CreditCard,
   KeyRound,
@@ -77,6 +79,18 @@ export function LandingPage() {
         t('landing.feature3Point3'),
       ],
       mock: <BudgetMock />,
+    },
+    {
+      icon: Bot,
+      eyebrow: t('landing.feature4Eyebrow'),
+      title: t('landing.feature4Title'),
+      description: t('landing.feature4Description'),
+      points: [
+        t('landing.feature4Point1'),
+        t('landing.feature4Point2'),
+        t('landing.feature4Point3'),
+      ],
+      mock: <AssistantMock />,
     },
   ]
 

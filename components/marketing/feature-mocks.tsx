@@ -105,6 +105,27 @@ export function TransactionMock() {
   )
 }
 
+export function AssistantMock() {
+  const { t } = useLanguage()
+
+  return (
+    <MockShell>
+      <div className="space-y-3">
+        <div className="flex justify-end">
+          <div className="bg-primary text-primary-foreground max-w-[85%] rounded-2xl rounded-br-sm px-3 py-2 text-sm">
+            {t('landing.assistantMockQuestion')}
+          </div>
+        </div>
+        <div className="flex justify-start">
+          <div className="bg-muted max-w-[85%] rounded-2xl rounded-bl-sm px-3 py-2 text-sm">
+            {t('landing.assistantMockAnswer')}
+          </div>
+        </div>
+      </div>
+    </MockShell>
+  )
+}
+
 export function BudgetMock() {
   const { t } = useLanguage()
 

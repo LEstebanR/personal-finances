@@ -71,6 +71,17 @@ export const translations = {
       feature3Point2: 'Recurring and one-off expenses',
       feature3Point3: 'Custom recurrences, like every 4 weeks',
 
+      feature4Eyebrow: 'AI assistant',
+      feature4Title: 'Just ask, in plain English.',
+      feature4Description:
+        'Connect Claude, ChatGPT, or any MCP-compatible AI assistant to check balances, log expenses, and get your monthly report — no clicking through screens.',
+      feature4Point1: 'Works with Claude and ChatGPT',
+      feature4Point2: 'Reads accounts, transactions, budgets, and debts',
+      feature4Point3: 'Can log transactions and transfers for you',
+      assistantMockQuestion: 'How much did I spend on restaurants this month?',
+      assistantMockAnswer:
+        'You spent $185,000 on Food this month — 12% less than last month.',
+
       capabilitiesTitle: "And that's not all.",
       capabilitiesTitleMuted: 'No extra apps needed.',
       capability1Title: 'Debts, under control',
@@ -767,6 +778,17 @@ export const translations = {
       feature3Point1: 'Presupuesto planeado vs. real',
       feature3Point2: 'Gastos recurrentes y ocasionales',
       feature3Point3: 'Recurrencia personalizada, como cada 4 semanas',
+
+      feature4Eyebrow: 'Asistente de IA',
+      feature4Title: 'Solo pídelo, en tu propio idioma.',
+      feature4Description:
+        'Conecta Claude, ChatGPT o cualquier asistente compatible con MCP para consultar saldos, registrar gastos y ver tu reporte mensual — sin entrar a ninguna pantalla.',
+      feature4Point1: 'Funciona con Claude y ChatGPT',
+      feature4Point2: 'Lee cuentas, transacciones, presupuesto y deudas',
+      feature4Point3: 'Puede registrar transacciones y transferencias por ti',
+      assistantMockQuestion: '¿Cuánto gasté en restaurantes este mes?',
+      assistantMockAnswer:
+        'Gastaste $185.000 en Alimentación este mes — 12% menos que el mes pasado.',
 
       capabilitiesTitle: 'Y eso no es todo.',
       capabilitiesTitleMuted: 'Sin apps de más.',
