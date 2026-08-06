@@ -5,7 +5,7 @@ import { prisma } from './prisma'
 
 const productionURL = 'https://personal-finances-chi.vercel.app'
 
-const baseURL =
+export const baseURL =
   process.env.BETTER_AUTH_URL ??
   (process.env.NODE_ENV === 'production'
     ? productionURL
