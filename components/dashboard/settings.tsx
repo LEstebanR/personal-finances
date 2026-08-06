@@ -49,12 +49,22 @@ export function Settings() {
             </code>
           </div>
           <div>
+            <p className="mb-1 font-medium">
+              {t('settings.mcpWebMobileLabel')}
+            </p>
+            <p className="text-muted-foreground">
+              {t('settings.mcpWebMobileDesc')}
+            </p>
+          </div>
+          <div>
             <p className="mb-1 font-medium">{t('settings.mcpConnectLabel')}</p>
             <pre className="bg-muted overflow-x-auto rounded px-3 py-2 font-mono text-xs">
               {`claude mcp add --transport http personal-finances ${serverUrl} --header "Authorization: Bearer YOUR_API_KEY"`}
             </pre>
+            <p className="text-muted-foreground mt-1">
+              {t('settings.mcpKeyNote')}
+            </p>
           </div>
-          <p className="text-muted-foreground">{t('settings.mcpKeyNote')}</p>
         </CardContent>
       </Card>
 

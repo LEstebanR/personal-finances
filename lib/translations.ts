@@ -125,7 +125,7 @@ export const translations = {
         'Yes — USD, COP, EUR, GBP, and CAD are available from the profile.',
       faqQ6: 'Can I manage it with an AI assistant?',
       faqA6:
-        'Yes — LESFin exposes an MCP server so any compatible AI assistant (Claude, and others) can read your accounts and log transactions for you in natural language. Connect it from Settings.',
+        'Yes — LESFin exposes an MCP server so any compatible AI assistant (Claude, and others) can read your accounts and log transactions for you in natural language. Connect it from Settings: Claude web and mobile connect with one click (sign in and approve access, no setup), and Claude Desktop/Code connect with an API key.',
 
       ctaTitle: 'Ready when you are.',
       ctaTitleMuted: 'Free, no strings attached.',
@@ -444,9 +444,12 @@ export const translations = {
       mcpDesc:
         'LESFin exposes an MCP server so any compatible AI assistant can read your accounts and log transactions in natural language.',
       mcpEndpointLabel: 'Server URL',
-      mcpConnectLabel: 'Connect from Claude Code',
+      mcpWebMobileLabel: 'Claude web or mobile',
+      mcpWebMobileDesc:
+        'In Claude, go to Settings → Connectors → Add custom connector and paste the URL above. You’ll be asked to sign in and approve access — no API key needed.',
+      mcpConnectLabel: 'Claude Desktop or Claude Code',
       mcpKeyNote:
-        "You'll need an API key. For now, generate one by running bun run scripts/generate-mcp-key.ts <your-email> on the server.",
+        "You'll need an API key for Desktop/Code. For now, generate one by running bun run scripts/generate-mcp-key.ts <your-email> on the server.",
       categories: 'Categories',
       categoriesDesc:
         'Manage the categories and subcategories used for your transactions.',
@@ -819,7 +822,7 @@ export const translations = {
       faqA5: 'Sí — USD, COP, EUR, GBP y CAD están disponibles desde el perfil.',
       faqQ6: '¿Puedo gestionarlo con un asistente de IA?',
       faqA6:
-        'Sí — LESFin expone un servidor MCP para que cualquier asistente de IA compatible (como Claude, entre otros) pueda leer tus cuentas y registrar transacciones por ti en lenguaje natural. Conéctalo desde Configuración.',
+        'Sí — LESFin expone un servidor MCP para que cualquier asistente de IA compatible (como Claude, entre otros) pueda leer tus cuentas y registrar transacciones por ti en lenguaje natural. Conéctalo desde Configuración: Claude web y móvil se conectan con un clic (inicias sesión y autorizas el acceso, sin configuración), y Claude Desktop/Code se conectan con una API key.',
 
       ctaTitle: 'Todo listo para empezar.',
       ctaTitleMuted: 'Gratis, sin letra chica.',
@@ -1346,9 +1349,12 @@ export const translations = {
       mcpDesc:
         'LESFin expone un servidor MCP para que cualquier asistente de IA compatible pueda leer tus cuentas y registrar transacciones en lenguaje natural.',
       mcpEndpointLabel: 'URL del servidor',
-      mcpConnectLabel: 'Conectar desde Claude Code',
+      mcpWebMobileLabel: 'Claude web o móvil',
+      mcpWebMobileDesc:
+        'En Claude, ve a Configuración → Connectors → Add custom connector y pega la URL de arriba. Te va a pedir iniciar sesión y autorizar el acceso — no necesitas ninguna API key.',
+      mcpConnectLabel: 'Claude Desktop o Claude Code',
       mcpKeyNote:
-        'Vas a necesitar una API key. Por ahora, genera una corriendo bun run scripts/generate-mcp-key.ts <tu-email> en el servidor.',
+        'Para Desktop/Code vas a necesitar una API key. Por ahora, genera una corriendo bun run scripts/generate-mcp-key.ts <tu-email> en el servidor.',
       categories: 'Categorías',
       categoriesDesc:
         'Administrar las categorías y subcategorías que se usan en las transacciones.',
