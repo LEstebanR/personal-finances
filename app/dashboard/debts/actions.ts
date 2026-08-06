@@ -47,21 +47,18 @@ const debtInterestChargeSchema = z.object({
   note: optionalString,
 })
 
-export async function getDebts() {
-  const session = await getServerSession()
-  if (!session) throw new Error('Not authenticated')
-
-  const plan = await getUserPlan(session.user.id)
-  await reconcileDebtLocks(session.user.id, plan)
+export async function getDebtsForUser(userId: string) {
+  const plan = await getUserPlan(userId)
+  await reconcileDebtLocks(userId, plan)
 
   const [debts, paidByDebt] = await Promise.all([
     prisma.debt.findMany({
-      where: { userId: session.user.id },
+      where: { userId },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.debtPayment.groupBy({
       by: ['debtId'],
-      where: { userId: session.user.id },
+      where: { userId },
       _sum: { amount: true },
     }),
   ])
@@ -82,6 +79,13 @@ export async function getDebts() {
     // look like it was paid off.
     totalPaid: totalPaidByDebtId.get(debt.id) ?? 0,
   }))
+}
+
+export async function getDebts() {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  return getDebtsForUser(session.user.id)
 }
 
 export async function getDebtPayments(debtId: string) {

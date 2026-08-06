@@ -54,11 +54,11 @@ function findMissingDefaults(existing: { name: string; type: string }[]) {
   )
 }
 
-export async function getCategories(type?: 'income' | 'expense') {
-  const session = await getServerSession()
-  if (!session) throw new Error('Not authenticated')
-
-  const where = { userId: session.user.id, ...(type ? { type } : {}) }
+export async function getCategoriesForUser(
+  userId: string,
+  type?: 'income' | 'expense'
+) {
+  const where = { userId, ...(type ? { type } : {}) }
   const categories = await prisma.category.findMany({
     where,
     include: { subcategories: { orderBy: { name: 'asc' } } },
@@ -72,7 +72,7 @@ export async function getCategories(type?: 'income' | 'expense') {
     type === undefined
       ? categories
       : await prisma.category.findMany({
-          where: { userId: session.user.id },
+          where: { userId },
           select: { name: true, type: true },
         })
   const missing = findMissingDefaults(allCategories)
@@ -80,7 +80,7 @@ export async function getCategories(type?: 'income' | 'expense') {
 
   await prisma.category.createMany({
     data: missing.map(({ name, type: missingType }) => ({
-      userId: session.user.id,
+      userId,
       name,
       type: missingType,
       isDefault: true,
@@ -92,6 +92,13 @@ export async function getCategories(type?: 'income' | 'expense') {
     include: { subcategories: { orderBy: { name: 'asc' } } },
     orderBy: { name: 'asc' },
   })
+}
+
+export async function getCategories(type?: 'income' | 'expense') {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  return getCategoriesForUser(session.user.id, type)
 }
 
 export async function createCategory(name: string, type: 'income' | 'expense') {

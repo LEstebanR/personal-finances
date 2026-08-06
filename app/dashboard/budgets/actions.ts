@@ -298,30 +298,32 @@ async function ensureDebtBudgetItems(
   await prisma.budgetItem.createMany({ data: toCreate, skipDuplicates: true })
 }
 
-export async function getBudgetOverview(month: number, year: number) {
-  const session = await getServerSession()
-  if (!session) throw new Error('Not authenticated')
-  await assertBudgetMonthAllowed(session.user.id, month, year)
+export async function getBudgetOverviewForUser(
+  userId: string,
+  month: number,
+  year: number
+) {
+  await assertBudgetMonthAllowed(userId, month, year)
 
   await Promise.all([
-    ensureSubscriptionBudgetItems(session.user.id, month, year),
-    ensureRecurringExpenseBudgetItems(session.user.id, month, year),
-    ensureDebtBudgetItems(session.user.id, month, year),
+    ensureSubscriptionBudgetItems(userId, month, year),
+    ensureRecurringExpenseBudgetItems(userId, month, year),
+    ensureDebtBudgetItems(userId, month, year),
   ])
 
   const range = monthRange(month, year)
 
   const [categories, budgetItems, expenses] = await Promise.all([
     prisma.category.findMany({
-      where: { userId: session.user.id, type: 'expense' },
+      where: { userId, type: 'expense' },
       orderBy: { name: 'asc' },
     }),
     prisma.budgetItem.findMany({
-      where: { userId: session.user.id, date: range },
+      where: { userId, date: range },
       select: { categoryId: true, amount: true },
     }),
     prisma.transaction.findMany({
-      where: { userId: session.user.id, type: 'expense', date: range },
+      where: { userId, type: 'expense', date: range },
       select: { categoryId: true, amount: true },
     }),
   ])
@@ -351,6 +353,13 @@ export async function getBudgetOverview(month: number, year: number) {
       spent: spentByCategory.get(category.id) ?? 0,
     }))
     .filter((item) => item.amount !== null || item.spent > 0)
+}
+
+export async function getBudgetOverview(month: number, year: number) {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  return getBudgetOverviewForUser(session.user.id, month, year)
 }
 
 export async function getBudgetDailyActuals(month: number, year: number) {

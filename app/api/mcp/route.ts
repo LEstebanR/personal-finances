@@ -1,4 +1,7 @@
 import { getAccountsForUser } from '@/app/dashboard/accounts/actions'
+import { getBudgetOverviewForUser } from '@/app/dashboard/budgets/actions'
+import { getCategoriesForUser } from '@/app/dashboard/categories/actions'
+import { getDebtsForUser } from '@/app/dashboard/debts/actions'
 import { getOverviewDataForUser } from '@/app/dashboard/overview/actions'
 import { getMonthlyFinancialReportForUser } from '@/app/dashboard/spending-trends/actions'
 import { getSubscriptionsForUser } from '@/app/dashboard/subscriptions/actions'
@@ -110,6 +113,60 @@ const handler = createMcpHandler(
         return {
           content: [{ type: 'text', text: JSON.stringify(subscriptions) }],
         }
+      }
+    )
+
+    server.registerTool(
+      'list_debts',
+      {
+        title: 'List debts',
+        description:
+          'List loans and credit cards (balance, interest, minimum payment, due day, total paid).',
+        inputSchema: z.object({}),
+        annotations: { readOnlyHint: true },
+      },
+      async (_args, ctx) => {
+        const debts = await getDebtsForUser(requireUserId(ctx))
+        return { content: [{ type: 'text', text: JSON.stringify(debts) }] }
+      }
+    )
+
+    server.registerTool(
+      'list_categories',
+      {
+        title: 'List categories',
+        description:
+          'List income/expense categories and subcategories, with their IDs — use this to resolve categoryId/subcategoryId before calling create_transaction.',
+        inputSchema: z.object({
+          type: z.enum(['income', 'expense']).optional(),
+        }),
+        annotations: { readOnlyHint: true },
+      },
+      async ({ type }, ctx) => {
+        const categories = await getCategoriesForUser(requireUserId(ctx), type)
+        return { content: [{ type: 'text', text: JSON.stringify(categories) }] }
+      }
+    )
+
+    server.registerTool(
+      'get_budget_overview',
+      {
+        title: 'Get budget overview',
+        description:
+          'Get budgeted vs. actual spending per expense category for a given month.',
+        inputSchema: z.object({
+          year: z.number().int(),
+          month: z.number().int().min(1).max(12),
+        }),
+        annotations: { readOnlyHint: true },
+      },
+      async ({ year, month }, ctx) => {
+        const overview = await getBudgetOverviewForUser(
+          requireUserId(ctx),
+          month,
+          year
+        )
+        return { content: [{ type: 'text', text: JSON.stringify(overview) }] }
       }
     )
 
