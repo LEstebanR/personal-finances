@@ -1,6 +1,7 @@
 import { getAccountsForUser } from '@/app/dashboard/accounts/actions'
 import { getOverviewDataForUser } from '@/app/dashboard/overview/actions'
 import { getMonthlyFinancialReportForUser } from '@/app/dashboard/spending-trends/actions'
+import { getSubscriptionsForUser } from '@/app/dashboard/subscriptions/actions'
 import {
   createTransactionForUser,
   createTransferForUser,
@@ -92,6 +93,23 @@ const handler = createMcpHandler(
       async (args, ctx) => {
         const transfers = await getTransfersForUser(requireUserId(ctx), args)
         return { content: [{ type: 'text', text: JSON.stringify(transfers) }] }
+      }
+    )
+
+    server.registerTool(
+      'list_subscriptions',
+      {
+        title: 'List subscriptions',
+        description:
+          'List recurring subscriptions (name, amount, frequency, due date, active/cancelled status).',
+        inputSchema: z.object({}),
+        annotations: { readOnlyHint: true },
+      },
+      async (_args, ctx) => {
+        const subscriptions = await getSubscriptionsForUser(requireUserId(ctx))
+        return {
+          content: [{ type: 'text', text: JSON.stringify(subscriptions) }],
+        }
       }
     )
 

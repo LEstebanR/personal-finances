@@ -66,15 +66,12 @@ const createSubscriptionSchema = subscriptionFieldsSchema
     path: ['accountId'],
   })
 
-export async function getSubscriptions() {
-  const session = await getServerSession()
-  if (!session) throw new Error('Not authenticated')
-
-  const plan = await getUserPlan(session.user.id)
-  await reconcileSubscriptionLocks(session.user.id, plan)
+export async function getSubscriptionsForUser(userId: string) {
+  const plan = await getUserPlan(userId)
+  await reconcileSubscriptionLocks(userId, plan)
 
   const subscriptions = await prisma.subscription.findMany({
-    where: { userId: session.user.id },
+    where: { userId },
     include: { category: true, subcategory: true, account: true, debt: true },
     orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
   })
@@ -89,6 +86,13 @@ export async function getSubscriptions() {
       isDebtSource: !!debt,
     })
   )
+}
+
+export async function getSubscriptions() {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  return getSubscriptionsForUser(session.user.id)
 }
 
 export async function createSubscription(formData: FormData) {
