@@ -139,9 +139,11 @@ export async function getAvailableSpendingYears() {
     .sort((a, b) => b - a)
 }
 
-export async function getMonthlyFinancialReport(year: number, month: number) {
-  const session = await getServerSession()
-  if (!session) throw new Error('Not authenticated')
+export async function getMonthlyFinancialReportForUser(
+  userId: string,
+  year: number,
+  month: number
+) {
   if (
     !Number.isInteger(year) ||
     !Number.isInteger(month) ||
@@ -150,7 +152,7 @@ export async function getMonthlyFinancialReport(year: number, month: number) {
   ) {
     throw new Error('Invalid report period')
   }
-  const plan = await getUserPlan(session.user.id)
+  const plan = await getUserPlan(userId)
   if (!isReportMonthAllowed(year, month, plan)) {
     throw new Error(
       `Free plan is limited to the last ${FREE_LIMITS.trendsMonths} months of spending reports. Upgrade to Pro for full history.`
@@ -158,7 +160,7 @@ export async function getMonthlyFinancialReport(year: number, month: number) {
   }
 
   const user = await prisma.user.findUniqueOrThrow({
-    where: { id: session.user.id },
+    where: { id: userId },
     select: { currency: true, language: true },
   })
   const range = {
@@ -168,7 +170,7 @@ export async function getMonthlyFinancialReport(year: number, month: number) {
 
   const [accounts, debts, transactions, transfers] = await Promise.all([
     prisma.account.findMany({
-      where: { userId: session.user.id },
+      where: { userId },
       orderBy: { name: 'asc' },
       select: {
         name: true,
@@ -178,7 +180,7 @@ export async function getMonthlyFinancialReport(year: number, month: number) {
       },
     }),
     prisma.debt.findMany({
-      where: { userId: session.user.id },
+      where: { userId },
       orderBy: { name: 'asc' },
       select: {
         name: true,
@@ -188,12 +190,12 @@ export async function getMonthlyFinancialReport(year: number, month: number) {
       },
     }),
     prisma.transaction.findMany({
-      where: { userId: session.user.id, date: range },
+      where: { userId, date: range },
       orderBy: { date: 'asc' },
       include: { category: true, subcategory: true, account: true, debt: true },
     }),
     prisma.transfer.findMany({
-      where: { userId: session.user.id, date: range },
+      where: { userId, date: range },
       orderBy: { date: 'asc' },
       include: { fromAccount: true, toAccount: true },
     }),
@@ -331,4 +333,11 @@ export async function getMonthlyFinancialReport(year: number, month: number) {
   }
 
   return lines.join('\n') + '\n'
+}
+
+export async function getMonthlyFinancialReport(year: number, month: number) {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  return getMonthlyFinancialReportForUser(session.user.id, year, month)
 }

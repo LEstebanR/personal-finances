@@ -3,26 +3,23 @@
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from '@/lib/session'
 
-export async function getOverviewData() {
-  const session = await getServerSession()
-  if (!session) throw new Error('Not authenticated')
-
+export async function getOverviewDataForUser(userId: string) {
   const [accounts, transactions, transfers, debts] = await Promise.all([
     prisma.account.findMany({
-      where: { userId: session.user.id, isArchived: false },
+      where: { userId, isArchived: false },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.transaction.findMany({
-      where: { userId: session.user.id },
+      where: { userId },
       include: { category: true, account: true, debt: true },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
     }),
     prisma.transfer.findMany({
-      where: { userId: session.user.id },
+      where: { userId },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
     }),
     prisma.debt.findMany({
-      where: { userId: session.user.id },
+      where: { userId },
     }),
   ])
 
@@ -52,4 +49,11 @@ export async function getOverviewData() {
       .filter((debt) => Number(debt.remainingBalance) > 0)
       .reduce((total, debt) => total + Number(debt.minimumPayment ?? 0), 0),
   }
+}
+
+export async function getOverviewData() {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  return getOverviewDataForUser(session.user.id)
 }

@@ -33,15 +33,12 @@ const updateAccountSchema = z.object({
   icon: z.string().nullable(),
 })
 
-export async function getAccounts() {
-  const session = await getServerSession()
-  if (!session) throw new Error('Not authenticated')
-
-  const plan = await getUserPlan(session.user.id)
-  await reconcileAccountLocks(session.user.id, plan)
+export async function getAccountsForUser(userId: string) {
+  const plan = await getUserPlan(userId)
+  await reconcileAccountLocks(userId, plan)
 
   const accounts = await prisma.account.findMany({
-    where: { userId: session.user.id },
+    where: { userId },
     orderBy: { createdAt: 'desc' },
   })
 
@@ -50,6 +47,13 @@ export async function getAccounts() {
     initialBalance: Number(account.initialBalance),
     currentBalance: Number(account.currentBalance),
   }))
+}
+
+export async function getAccounts() {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  return getAccountsForUser(session.user.id)
 }
 
 export async function createAccount(formData: FormData) {

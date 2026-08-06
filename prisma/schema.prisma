@@ -221,9 +221,24 @@ model User {
   subscriptions     Subscription[]
   recurringExpenses RecurringExpense[]
   feedback          Feedback[]
+  mcpApiKeys        McpApiKey[]
 
   @@unique([email])
   @@map("user")
+}
+
+model McpApiKey {
+  id         String    @id @default(uuid())
+  userId     String
+  name       String
+  keyHash    String
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([keyHash])
+  @@index([userId])
 }
 
 model Feedback {
