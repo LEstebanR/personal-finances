@@ -123,6 +123,9 @@ export const translations = {
       faqQ5: 'Can I change the currency?',
       faqA5:
         'Yes — USD, COP, EUR, GBP, and CAD are available from the profile.',
+      faqQ6: 'Can I manage it with an AI assistant?',
+      faqA6:
+        'Yes — LESFin exposes an MCP server so any compatible AI assistant (Claude, and others) can read your accounts and log transactions for you in natural language. Connect it from Settings.',
 
       ctaTitle: 'Ready when you are.',
       ctaTitleMuted: 'Free, no strings attached.',
@@ -437,6 +440,13 @@ export const translations = {
     settings: {
       language: 'Language',
       languageDesc: 'Choose the language for the app.',
+      mcpTitle: 'Connect an AI assistant',
+      mcpDesc:
+        'LESFin exposes an MCP server so any compatible AI assistant can read your accounts and log transactions in natural language.',
+      mcpEndpointLabel: 'Server URL',
+      mcpConnectLabel: 'Connect from Claude Code',
+      mcpKeyNote:
+        "You'll need an API key. For now, generate one by running bun run scripts/generate-mcp-key.ts <your-email> on the server.",
       categories: 'Categories',
       categoriesDesc:
         'Manage the categories and subcategories used for your transactions.',
@@ -807,6 +817,9 @@ export const translations = {
         'Sí, es una aplicación web que se puede instalar en la pantalla de inicio desde Chrome o Safari, y funciona igual que una app nativa.',
       faqQ5: '¿Se puede cambiar la moneda?',
       faqA5: 'Sí — USD, COP, EUR, GBP y CAD están disponibles desde el perfil.',
+      faqQ6: '¿Puedo gestionarlo con un asistente de IA?',
+      faqA6:
+        'Sí — LESFin expone un servidor MCP para que cualquier asistente de IA compatible (como Claude, entre otros) pueda leer tus cuentas y registrar transacciones por ti en lenguaje natural. Conéctalo desde Configuración.',
 
       ctaTitle: 'Todo listo para empezar.',
       ctaTitleMuted: 'Gratis, sin letra chica.',
@@ -1329,6 +1342,13 @@ export const translations = {
     settings: {
       language: 'Idioma',
       languageDesc: 'Elegir el idioma de la aplicación.',
+      mcpTitle: 'Conectar un asistente de IA',
+      mcpDesc:
+        'LESFin expone un servidor MCP para que cualquier asistente de IA compatible pueda leer tus cuentas y registrar transacciones en lenguaje natural.',
+      mcpEndpointLabel: 'URL del servidor',
+      mcpConnectLabel: 'Conectar desde Claude Code',
+      mcpKeyNote:
+        'Vas a necesitar una API key. Por ahora, genera una corriendo bun run scripts/generate-mcp-key.ts <tu-email> en el servidor.',
       categories: 'Categorías',
       categoriesDesc:
         'Administrar las categorías y subcategorías que se usan en las transacciones.',

@@ -140,6 +140,7 @@ export function LandingPage() {
     { q: t('landing.faqQ3'), a: t('landing.faqA3') },
     { q: t('landing.faqQ4'), a: t('landing.faqA4') },
     { q: t('landing.faqQ5'), a: t('landing.faqA5') },
+    { q: t('landing.faqQ6'), a: t('landing.faqA6') },
   ]
 
   return (
