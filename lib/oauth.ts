@@ -11,8 +11,6 @@ export const ACCESS_TOKEN_TTL_SECONDS = 60 * 60
 export const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30
 export const AUTH_CODE_TTL_SECONDS = 120
 
-// Duplicated one-liner (not imported from lib/mcp-auth.ts) to avoid a
-// circular import, since that module imports OAUTH_ACCESS_TOKEN_PREFIX from here.
 export function hashOAuthToken(token: string) {
   return createHash('sha256').update(token).digest('hex')
 }
