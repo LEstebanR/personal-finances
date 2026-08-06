@@ -101,25 +101,29 @@ export async function getCategories(type?: 'income' | 'expense') {
   return getCategoriesForUser(session.user.id, type)
 }
 
-export async function createCategory(name: string, type: 'income' | 'expense') {
-  const session = await getServerSession()
-  if (!session) throw new Error('Not authenticated')
-
+export async function createCategoryForUser(
+  userId: string,
+  name: string,
+  type: 'income' | 'expense'
+) {
   const trimmed = categoryNameSchema.parse(name)
   categoryTypeSchema.parse(type)
 
   const existing = await prisma.category.findFirst({
-    where: {
-      userId: session.user.id,
-      type,
-      name: { equals: trimmed, mode: 'insensitive' },
-    },
+    where: { userId, type, name: { equals: trimmed, mode: 'insensitive' } },
   })
   if (existing) return existing
 
   return prisma.category.create({
-    data: { userId: session.user.id, name: trimmed, type, isDefault: false },
+    data: { userId, name: trimmed, type, isDefault: false },
   })
+}
+
+export async function createCategory(name: string, type: 'income' | 'expense') {
+  const session = await getServerSession()
+  if (!session) throw new Error('Not authenticated')
+
+  return createCategoryForUser(session.user.id, name, type)
 }
 
 export async function updateCategory(id: string, name: string) {
@@ -156,6 +160,32 @@ export async function getSubcategories(categoryId: string) {
   })
 }
 
+export async function findOrCreateSubcategoryForUser(
+  userId: string,
+  categoryId: string,
+  name: string
+) {
+  uuidField.parse(categoryId)
+  const trimmed = requiredString.parse(name)
+
+  await prisma.category.findFirstOrThrow({
+    where: { id: categoryId, userId },
+  })
+
+  const existing = await prisma.subcategory.findFirst({
+    where: {
+      categoryId,
+      userId,
+      name: { equals: trimmed, mode: 'insensitive' },
+    },
+  })
+  if (existing) return existing
+
+  return prisma.subcategory.create({
+    data: { categoryId, userId, name: trimmed },
+  })
+}
+
 export async function findOrCreateSubcategory(
   categoryId: string,
   name: string
@@ -163,25 +193,7 @@ export async function findOrCreateSubcategory(
   const session = await getServerSession()
   if (!session) throw new Error('Not authenticated')
 
-  uuidField.parse(categoryId)
-  const trimmed = requiredString.parse(name)
-
-  await prisma.category.findFirstOrThrow({
-    where: { id: categoryId, userId: session.user.id },
-  })
-
-  const existing = await prisma.subcategory.findFirst({
-    where: {
-      categoryId,
-      userId: session.user.id,
-      name: { equals: trimmed, mode: 'insensitive' },
-    },
-  })
-  if (existing) return existing
-
-  return prisma.subcategory.create({
-    data: { categoryId, userId: session.user.id, name: trimmed },
-  })
+  return findOrCreateSubcategoryForUser(session.user.id, categoryId, name)
 }
 
 export async function updateSubcategory(id: string, name: string) {
